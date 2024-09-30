@@ -272,6 +272,22 @@ string _sra(string op1, string op2){
     return result;
 }
 
+string _slt(string op1, string op2){
+    bool result = _isLessThan(op1, op2);
+    if(result == true){
+        return "0000000000000001";
+    }
+    return "0000000000000000";
+}
+
+string _sltu(string op1, string op2){
+    bool result = _isLessThanUn(op1, op2);
+    if(result == true){
+        return "0000000000000001";
+    }
+    return "0000000000000000";
+}
+
 // comparators.
 /**
  * @brief This function is used by beq.

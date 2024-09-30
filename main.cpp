@@ -1,7 +1,6 @@
 #include "./sim_prototypes.hh"
 
 int main(){
-    string s = "-24";
-    cout << immediateGenerator(s) << endl;
+    cout << hexadecimalToDecimal("1234") << endl;
     return 0;
 }

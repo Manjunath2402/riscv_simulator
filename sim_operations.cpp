@@ -16,7 +16,7 @@ map<string, int> regNameToRegNum = {
     {"s8", 24}, {"s9", 25}, {"s10", 26}, {"s11", 27}, {"t3", 28}, {"t4", 29},
     {"t5", 30}, {"t6", 31},
 
-    {"fp", 8}
+    {"fp", 8}, {"pc", 32}
 };
 
 map<int, string> regNumToRegValue = {
@@ -27,9 +27,39 @@ map<int, string> regNumToRegValue = {
     {16, "0000000000000000"}, {17, "0000000000000000"}, {18, "0000000000000000"}, {19, "0000000000000000"}, 
     {20, "0000000000000000"}, {21, "0000000000000000"}, {22, "0000000000000000"}, {23, "0000000000000000"}, 
     {24, "0000000000000000"}, {25, "0000000000000000"}, {26, "0000000000000000"}, {27, "0000000000000000"}, 
-    {28, "0000000000000000"}, {29, "0000000000000000"}, {30, "0000000000000000"}, {31, "0000000000000000"}
+    {28, "0000000000000000"}, {29, "0000000000000000"}, {30, "0000000000000000"}, {31, "0000000000000000"},
+
+    {32, "0000000000000000"} // This is PC register.
 };
 
+map<string, int> labelData;
+map<string, string> memory;
+map<string, function<string (string, string)>> RFunctionMap = {
+    {"add", _add}, {"sub", _sub}, {"xor", _xor}, {"or", _or}, {"and", _and}, {"sll", _sll},
+    {"srl", _srl}, {"sra", _sra}, {"slt", _slt}, {"sltu", _sltu}
+};
+
+map<string, function<string (string, string)>> IFunctionMap = {
+    {"addi", _add}, {"xori", _xor}, {"ori", _or}, {"andi", _and}, {"slli", _sll},
+    {"srli", _srl}, {"srai", _sra}, {"slti", _slt}, {"sltiu", _sltu}
+};
+
+map<string, function<bool (string, string)>> BFunctionMap = {
+    {"beq", _isEqual}, {"bne", _isNotEqual}, {"bge", _isGreaterOrEqual},
+    {"blt", _isLessThan}, {"bltu", _isLessThanUn}, {"bgeu", _isGreaterOrEqualUn}
+};
+// A map of R format operations and this function pointers.
+
+set<string> RFormatInstructions = {"add", "sub", "xor", "or", "and", "sll", "srl", "sra", "slt", "sltu"};
+set<string> IFormatInstructions1 = {"addi", "xori", "ori", "andi", "slli", "srli", "srai", "slti", "sltiu",
+    "jalr" };
+set<string> IFormatInstructions2 = {
+    "lb", "lw", "lh", "ld", "lbu", "lwu", "lhu"
+};
+set<string> SFormatInstructions = {"sd", "sw", "sh", "sb"};
+set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
+set<string> JFormatInstructions = {"jal"};
+set<string> UFormatInstructions = {"lui", "auipc"};
 
 /**
  * @brief This function is used by immediate Instructions.
@@ -38,13 +68,12 @@ map<int, string> regNumToRegValue = {
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
     reverse(result.begin(), result.end());
-    result = result.substr(0, 12);
 
-    char sign = result[11];
-    for (size_t i = 0; i < 52; i++){
+    char sign = result[result.size() - 1];
+    for (size_t i = 0; i < (64 - result.size()); i++){
         result += sign;
     }
-    
+    result = result.substr(0, 64);
     reverse(result.begin(), result.end());
     result = binaryToHexadecimal(result);
 
@@ -108,4 +137,216 @@ string decimalToBinary(string s){
     reverse(bin.begin(), bin.end());
     
     return bin;
+}
+
+
+/**
+ * @brief Goes through the file once and gets the label and their corresponding line numbers.
+ * @param in a reference to the file stream of the input file
+ * @return return void.
+ */
+void labelParser(ifstream& in){
+    in.clear();
+    in.seekg(0);
+
+    string s;
+    int lineNumber = 0;
+    while (true){
+        if(in.eof()) break;
+
+        getline(in, s);
+        lineNumber++;
+
+        char iterator = s[0];
+        int index = 0;
+        string label = "";
+        string temp = "";
+
+        while (iterator != '\0'){
+            if(iterator == ':'){
+                label = temp;
+                break;
+            }
+            temp += iterator;
+            index++;
+            iterator = s[index];
+        }
+
+        // if there is no colon in the instruction then label will never be assigned.
+        if(label != ""){
+            if(labelData[label] == 0){
+                labelData[label] = lineNumber;
+            }
+        }
+    }
+    
+}
+
+void executeInstruction(string s, int lineNumber){
+    char iterator = s[0];
+    string temp[5] = {"", "", "", "", ""};
+
+    int i = 0;
+    int index = 0;
+    
+    while (iterator != '\0'){
+
+        if(iterator == ':'){
+            temp[i] = "";
+            i = -1;
+        }
+        else if(iterator == ' ' || iterator == '('){
+            i++;
+        }
+        else if(iterator != ',' && iterator != ')'){
+            temp[i] += iterator;
+        }
+
+        index++;
+        iterator = s[index];  
+    }
+
+    if(RFormatInstructions.find(temp[0]) != RFormatInstructions.cend()){
+        RInstructionExecutor(temp[0], temp[1], temp[2], temp[3]);
+    }
+    else if(IFormatInstructions1.find(temp[0]) != IFormatInstructions1.cend()){
+        IInstructionExecutor1(temp[0], temp[1], temp[2], temp[3]);
+    }
+    else if(IFormatInstructions2.find(temp[0]) != IFormatInstructions2.cend()){
+        IInstructionExecutor2(temp[0], temp[1], temp[3], temp[2]);
+    }
+    else if(SFormatInstructions.find(temp[0]) != SFormatInstructions.cend()){
+        SInstructionExecutor(temp[0], temp[3], temp[1], temp[2]);
+    }
+    else if(BFormatInstructions.find(temp[0]) != BFormatInstructions.cend()){
+        BInstructionExecutor(temp[0], temp[1], temp[2], temp[3], lineNumber);
+    }
+    else if(UFormatInstructions.find(temp[0]) != UFormatInstructions.cend()){
+        string decimalOffset = "";
+        if(temp[2] == "0x"){
+            temp[2] = temp[2].substr(temp[2].size() - 5); 
+            // Last 5 hexadecimal bits are considered == 20 binary bits.
+            decimalOffset = hexadecimalToDecimal(temp[2]);
+        }
+        else{
+            decimalOffset = temp[2];
+        }
+        UInstructionExecutor(temp[0], temp[1], temp[2]);
+    }
+}
+
+void RInstructionExecutor(string op, string rd, string rs1, string rs2){
+    rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    rs2 = regNumToRegValue[regNameToRegNum[rs2]];
+    string result = RFunctionMap[op](rs1, rs2);
+    regNumToRegValue[regNameToRegNum[rd]] = result;
+}
+
+void IInstructionExecutor1(string op, string rd, string rs1, string imm){
+    imm = immediateGenerator(imm);
+    rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    string result = IFunctionMap[op](rs1, imm);
+    regNumToRegValue[regNameToRegNum[rd]] = result;
+}
+
+void IInstructionExecutor2(string op, string rd, string rs1, string offset){
+    offset = immediateGenerator(offset);
+    rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    string effectiveAddress = RFunctionMap["add"](rs1, offset);
+    string result = "";
+    int numberOfBytes = 0;
+    if(op == "ld") numberOfBytes = 8;
+    else if(op == "lw") numberOfBytes = 4;
+    else if(op == "lh") numberOfBytes = 2;
+    else if(op == "lb") numberOfBytes = 1;
+    else if(op == "lbu") numberOfBytes = 1;
+    else if(op == "lhu") numberOfBytes = 2;
+    else if(op == "lwu") numberOfBytes = 4;
+
+    for (size_t i = 0; i < numberOfBytes; i++){
+        result += memory[effectiveAddress];
+        effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
+    }
+    
+    char sign = result[2 * numberOfBytes - 1];
+    if(op == "lbu" || op == "lhu" || op == "lwu") sign = '0';
+
+    for (size_t i = 0; i < (16 - (2 * numberOfBytes)); i++){
+        result += sign;
+    }
+    
+    reverse(result.begin(), result.end());
+
+    regNumToRegValue[regNameToRegNum[rd]] = result;
+}
+
+void SInstructionExecutor(string op, string rs1, string rs2, string offset){
+    offset = immediateGenerator(offset);
+    rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    string effectiveAddress = RFunctionMap["add"](rs1, offset);
+    reverse(rs2.begin(), rs2.end());
+    // We are following little endian format, lsb at lower address.
+    int numberOfBytes = 0;
+    if(op == "sd") numberOfBytes = 8;
+    else if(op == "sw") numberOfBytes = 4;
+    else if(op == "sh") numberOfBytes = 2;
+    else if(op == "sb") numberOfBytes = 1;
+
+    for (size_t i = 0; i < numberOfBytes; i++){
+        memory[effectiveAddress] = rs2.substr(i, 2);
+        effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
+    }
+
+}
+
+void BInstructionExecutor(string op, string rs1, string rs2, string label, int lineNumber){
+    rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    rs2 = regNumToRegValue[regNameToRegNum[rs2]];
+
+    bool branchCondition = BFunctionMap[op](rs1, rs2);
+    int offset = (labelData[label] - lineNumber) * 4;
+    string Offset = to_string(offset);
+    Offset = immediateGenerator(Offset);
+    if(branchCondition == true){
+        regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], Offset);
+    }
+    
+}
+
+void UInstructionExecutor(string op, string rd, string imm){
+    imm = immediateGenerator(imm);
+    imm = RFunctionMap["sll"](imm, "000000000000000c");
+    if(op == "lui"){
+        regNumToRegValue[regNameToRegNum[rd]] = imm;
+    }
+    else{
+        regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], imm);
+    }
+}
+
+string hexadecimalToDecimal(string s){
+    int multiplier = 1;
+    int decimalValue = 0;
+    for (int i = s.size() - 1; i >= 0; i--){
+        if(s[i] >= 48 && s[i] <= 57){
+            decimalValue += (s[i] - '0') * multiplier;
+        }
+        else{
+            decimalValue += (s[i] - 'a' + 10) * multiplier;
+        }
+        multiplier *= 16;
+    }
+    
+    return to_string(decimalValue);
+}
+
+void printRegisterValues(){
+    cout << "0x" << regNumToRegValue[1] << endl;
+    cout << "0x" << regNumToRegValue[2] << endl;
+    cout << "0x" << regNumToRegValue[3] << endl;
+    cout << "0x" << regNumToRegValue[4] << endl;
+    cout << "0x" << regNumToRegValue[5] << endl;
+    cout << "0x" << regNumToRegValue[6] << endl;
+    cout << "0x" << regNumToRegValue[7] << endl;
+    cout << "0x" << regNumToRegValue[8] << endl;
 }
