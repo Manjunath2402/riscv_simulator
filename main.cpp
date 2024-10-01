@@ -25,8 +25,12 @@ int main(){
         }
         
         if(fields[0] == "load"){
+            inputFile.close();
             inputFile.open(fields[1], ios::in);
+
             labelParser(inputFile);
+            initialiseDataSegment(inputFile);
+            setBufferFromTextSeg(inputFile);
             setRegistersToZero();
             lineNumber = 0;
         }
@@ -45,6 +49,10 @@ int main(){
         }
         else if(fields[0] == "regs"){
             printRegisterValues();
+        }
+        else if(fields[0] == "mem"){
+            int bytes = stoi(fields[2]);
+            printMemory(fields[1], bytes);
         }
         else if(fields[0] == "exit"){
             cout << "Exiting the simulator." << endl;

@@ -41,7 +41,7 @@ map<string, function<string (string, string)>> RFunctionMap = {
 
 map<string, function<string (string, string)>> IFunctionMap = {
     {"addi", _add}, {"xori", _xor}, {"ori", _or}, {"andi", _and}, {"slli", _sll},
-    {"srli", _srl}, {"srai", _sra}, {"slti", _slt}, {"sltiu", _sltu}
+    {"srli", _srl}, {"srai", _sra}, {"slti", _slt}, {"sltiu", _sltu}, {"jalr", _add}
 };
 
 map<string, function<bool (string, string)>> BFunctionMap = {
@@ -182,6 +182,67 @@ void labelParser(ifstream& in){
     in.seekg(0);
 }
 
+void initialiseDataSegment(ifstream& in){
+    in.clear();
+    in.seekg(0);
+
+    string segmentStart = "0000000000010000";
+    string s = "";
+    int flag = 0;
+    while (true){
+        if(in.eof()) break;
+        getline(in, s);
+        s = lineParser(s);
+        if(s == ".data") flag = 1;
+        else if(s == ".text") break;
+        if(flag == 1){
+            getline(in, s);
+            s = lineParser(s);
+            string temp[3] = {"", "", ""};
+
+            int index = 0;
+            int count = 0;
+            while (true){
+                if(s[index] != ' ' && s[index] != '\0'){
+                    temp[3] += s[index];
+                }
+                else{
+                    temp[count] = temp[3];
+                    count++;
+                    temp[3] = "";
+                }
+                if(s[index] == '\0') break;
+                index++;
+            }
+            
+            int bytes = 8;
+            if(temp[0] == ".word") bytes = 4;
+            temp[1] = temp[1].substr(2);
+
+            reverse(temp[1].begin(), temp[1].end());
+            for (size_t i = 0; i < bytes; i++){
+                memory[segmentStart] = temp[2].substr(2 * i, 2);
+                segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
+            }
+        }
+    }
+    
+    in.clear();
+    in.seekg(0);
+}
+
+void setBufferFromTextSeg(ifstream& in){
+    in.clear();
+    in.seekg(0);
+
+    string s = "";
+    do{
+        getline(in, s);
+        if(s == ".text") break;
+    } while (!(in.eof()));
+    
+}
+
 void executeInstruction(string s, int& lineNumber, ifstream& in){
     char iterator = s[0];
     string temp[5] = {"", "", "", "", ""};
@@ -210,7 +271,12 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
         RInstructionExecutor(temp[0], temp[1], temp[2], temp[3]);
     }
     else if(IFormatInstructions1.find(temp[0]) != IFormatInstructions1.cend()){
-        IInstructionExecutor1(temp[0], temp[1], temp[2], temp[3]);
+        if(temp[0] != "jalr"){
+            IInstructionExecutor1(temp[0], temp[1], temp[2], temp[3], lineNumber, in);
+        }
+        else{
+            IInstructionExecutor1(temp[0], temp[1], temp[3], temp[2], lineNumber, in);
+        }
     }
     else if(IFormatInstructions2.find(temp[0]) != IFormatInstructions2.cend()){
         IInstructionExecutor2(temp[0], temp[1], temp[3], temp[2]);
@@ -236,6 +302,7 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
     else if(JFormatInstructions.find(temp[0]) != JFormatInstructions.cend()){
         JInstructionExecutor(temp[0], temp[1], temp[2], lineNumber, in);
     }
+    regNumToRegValue[0] = "0000000000000000";
 }
 
 void RInstructionExecutor(string op, string rd, string rs1, string rs2){
@@ -246,20 +313,32 @@ void RInstructionExecutor(string op, string rd, string rs1, string rs2){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
-void IInstructionExecutor1(string op, string rd, string rs1, string imm){
+void IInstructionExecutor1(string op, string rd, string rs1, string imm, int& lineNumber, ifstream& in){
     imm = immediateGenerator(imm);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     string result = IFunctionMap[op](rs1, imm);
-    regNumToRegValue[regNameToRegNum[rd]] = result;
-    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+    
+    if(op == "jalr"){
+        regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+        string pc = regNumToRegValue[32].substr(regNumToRegValue[32].size() - 6);
+        lineNumber = stoi(hexadecimalToDecimal(pc));
+        jumpToLine(in, lineNumber);
+        regNumToRegValue[32] = result;
+    }
+    else{
+        regNumToRegValue[regNameToRegNum[rd]] = result;
+        regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+    }
 }
 
 void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     offset = immediateGenerator(offset);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+
     string effectiveAddress = RFunctionMap["add"](rs1, offset);
     string result = "";
     int numberOfBytes = 0;
+
     if(op == "ld") numberOfBytes = 8;
     else if(op == "lw") numberOfBytes = 4;
     else if(op == "lh") numberOfBytes = 2;
@@ -268,8 +347,15 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     else if(op == "lhu") numberOfBytes = 2;
     else if(op == "lwu") numberOfBytes = 4;
 
+    string byte = "";
     for (size_t i = 0; i < numberOfBytes; i++){
-        result += memory[effectiveAddress];
+        byte = memory[effectiveAddress];
+        if(memory[effectiveAddress] == ""){
+            result += "00";
+        }
+        else{
+            result += memory[effectiveAddress];
+        }
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
     }
     
@@ -299,7 +385,7 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     else if(op == "sb") numberOfBytes = 1;
 
     for (size_t i = 0; i < numberOfBytes; i++){
-        memory[effectiveAddress] = rs2.substr(i, 2);
+        memory[effectiveAddress] = rs2.substr(2 * i, 2);
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
     }
 
@@ -329,7 +415,7 @@ void JInstructionExecutor(string op, string rd, string label, int& lineNumber, i
     Offset = immediateGenerator(Offset);
     lineNumber = labelData[label];
     jumpToLine(in, lineNumber);
-    regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], Offset);
+    regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
 void UInstructionExecutor(string op, string rd, string imm){
@@ -406,6 +492,7 @@ string step(ifstream& in, int& lineNumber){
     s = lineParser(s);
 
     executeInstruction(s, lineNumber, in);
+    lineNumber++;
 
     return s;
 }
@@ -421,7 +508,24 @@ void run(ifstream& in, int& lineNumber){
         else{
             cout << "Executed " << temp << "; " << "PC=0x" << regNumToRegValue[32] << endl;
         }
-        lineNumber++;
+    }
+    
+}
+
+void printMemory(string address, int numberOfBytes){
+
+    string byte = "";
+    address = address.substr(2);
+    address = "00000000000" + address;
+
+    for (size_t i = 0; i < numberOfBytes; i++){
+        byte = memory[address];
+        if(byte == "") byte = "00";
+        cout << "Memory[0x" << address << "] = 0x" << byte << endl;
+
+        address = "00000000000" + address;
+        address = RFunctionMap["add"](address, "0000000000000001");
+        address = address.substr(address.size() - 5);
     }
     
 }
