@@ -4,9 +4,10 @@ int main(){
     ifstream inputFile;
     // cout << immediateGenerator("2") << endl;
     // cout << hexadecimalToDecimal("234fe") << endl;
+    int lineNumber;
     while (true){
         string input;
-        int lineNumber = 0;
+        
         getline(cin, input);
         input = lineParser(input);
 
@@ -30,9 +31,8 @@ int main(){
 
             labelParser(inputFile);
             initialiseDataSegment(inputFile);
-            setBufferFromTextSeg(inputFile);
+            setBufferFromTextSeg(inputFile, lineNumber);
             setRegistersToZero();
-            lineNumber = 0;
         }
         else if(fields[0] == "step"){
             string temp = step(inputFile, lineNumber);

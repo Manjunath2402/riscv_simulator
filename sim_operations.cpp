@@ -193,23 +193,22 @@ void initialiseDataSegment(ifstream& in){
         if(in.eof()) break;
         getline(in, s);
         s = lineParser(s);
-        if(s == ".data") flag = 1;
+        if(s == ".data") {flag = 1; continue;}
         else if(s == ".text") break;
+        else if(s == "") continue;
         if(flag == 1){
-            getline(in, s);
-            s = lineParser(s);
             string temp[3] = {"", "", ""};
 
             int index = 0;
             int count = 0;
             while (true){
                 if(s[index] != ' ' && s[index] != '\0'){
-                    temp[3] += s[index];
+                    temp[2] += s[index];
                 }
                 else{
-                    temp[count] = temp[3];
+                    temp[count] = temp[2];
                     count++;
-                    temp[3] = "";
+                    temp[2] = "";
                 }
                 if(s[index] == '\0') break;
                 index++;
@@ -221,7 +220,7 @@ void initialiseDataSegment(ifstream& in){
 
             reverse(temp[1].begin(), temp[1].end());
             for (size_t i = 0; i < bytes; i++){
-                memory[segmentStart] = temp[2].substr(2 * i, 2);
+                memory[segmentStart] = temp[1].substr(2 * i, 2);
                 segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
             }
         }
@@ -231,16 +230,18 @@ void initialiseDataSegment(ifstream& in){
     in.seekg(0);
 }
 
-void setBufferFromTextSeg(ifstream& in){
+void setBufferFromTextSeg(ifstream& in, int& lineNumber){
     in.clear();
     in.seekg(0);
 
+    lineNumber = 0;
     string s = "";
     do{
         getline(in, s);
+        lineNumber++;
         if(s == ".text") break;
     } while (!(in.eof()));
-    
+    lineNumber++;
 }
 
 void executeInstruction(string s, int& lineNumber, ifstream& in){
@@ -249,6 +250,7 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
 
     int i = 0;
     int index = 0;
+    int spaceFlag = 0;
     
     while (iterator != '\0'){
 
@@ -256,11 +258,13 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
             temp[i] = "";
             i = -1;
         }
-        else if(iterator == ' ' || iterator == '('){
+        else if((iterator == ' ' && spaceFlag == 0) || iterator == '('){
             i++;
+            spaceFlag = 1;
         }
-        else if(iterator != ',' && iterator != ')'){
+        else if(iterator != ',' && iterator != ')' && iterator != ' '){
             temp[i] += iterator;
+            spaceFlag = 0;
         }
 
         index++;
@@ -290,8 +294,16 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
     else if(UFormatInstructions.find(temp[0]) != UFormatInstructions.cend()){
         string decimalOffset = "";
         if(temp[2].substr(0, 2) == "0x"){
-            temp[2] = temp[2].substr(temp[2].size() - 5); 
+            // temp[2] = temp[2].substr(temp[2].size() - 5); 
             // Last 5 hexadecimal bits are considered == 20 binary bits.
+            temp[2] = temp[2].substr(2);
+            reverse(temp[2].begin(), temp[2].end());
+            int size = temp[2].size();
+            for (int i = 0; i < (5 - size); i++){
+                temp[2] += "0";
+            }
+            reverse(temp[2].begin(), temp[2].end());
+            temp[2] = temp[2].substr(temp[2].size() - 5);
             decimalOffset = hexadecimalToDecimal(temp[2]);
         }
         else{
@@ -347,9 +359,7 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     else if(op == "lhu") numberOfBytes = 2;
     else if(op == "lwu") numberOfBytes = 4;
 
-    string byte = "";
     for (size_t i = 0; i < numberOfBytes; i++){
-        byte = memory[effectiveAddress];
         if(memory[effectiveAddress] == ""){
             result += "00";
         }
@@ -375,6 +385,7 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
 void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     offset = immediateGenerator(offset);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
+    rs2 = regNumToRegValue[regNameToRegNum[rs2]];
     string effectiveAddress = RFunctionMap["add"](rs1, offset);
     reverse(rs2.begin(), rs2.end());
     // We are following little endian format, lsb at lower address.
@@ -453,6 +464,8 @@ string hexadecimalToDecimal(string s){
  * @return parsed string with no spaces in the start and end.
  */
 string lineParser(string s){
+    if(s == "") return "";
+
     int index = 0;
     int numberOfWhitespaces = 0;
     while (true){
