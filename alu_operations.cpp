@@ -183,12 +183,15 @@ string _sll(string op1, string op2){
     int shiftBy = 0;
     // only last two bits.
     if(shift[0] == '1' || shift[0] == '2' || shift[0] == '3'){
-        shiftBy = int(shift[0] - '0') * 16;
+        shiftBy += int(shift[0] - '0') * 16;
+    }
+    if(shift[1] >= 48 && shift[1] <= 57){
         shiftBy += int(shift[1] - '0');
     }
     else{
-        shiftBy = int(shift[0] - '0');
+        shiftBy += int(shift[1] - 'a' + 10);
     }
+    
 
     op1 = hexadecimalToBinary(op1);
     for (size_t i = 0; i < shiftBy; i++){
@@ -216,10 +219,12 @@ string _srl(string op1, string op2){
 
     if(shift[0] == '1' || shift[0] == '2' || shift[0] == '3'){
         shiftBy = int(shift[0] - '0') * 16;
+    }
+    if(shift[1] >= 48 && shift[1] <= 57){
         shiftBy += int(shift[1] - '0');
     }
     else{
-        shiftBy = int(shift[0] - '0');
+        shiftBy += int(shift[1] - 'a' + 10);
     }
 
     op1 = hexadecimalToBinary(op1);
@@ -249,10 +254,12 @@ string _sra(string op1, string op2){
 
     if(shift[0] == '1' || shift[0] == '2' || shift[0] == '3'){
         shiftBy = int(shift[0] - '0') * 16;
+    }
+    if(shift[1] >= 48 && shift[1] <= 57){
         shiftBy += int(shift[1] - '0');
     }
     else{
-        shiftBy = int(shift[0] - '0');
+        shiftBy += int(shift[1] - 'a' + 10);
     }
 
     char sign = hexToBin[op1[0]][0];

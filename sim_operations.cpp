@@ -61,22 +61,21 @@ set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
 set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
-/**
- * @brief This function is used by immediate Instructions.
- * @param op1 a 
- */
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
+    // cout << result << endl;
     reverse(result.begin(), result.end());
 
-    char sign = result[result.size() - 1];
-    for (size_t i = 0; i < (64 - result.size()); i++){
+    int length = result.size();
+    char sign = result[length - 1];
+    for (size_t i = 0; i < (64 - length); i++){
         result += sign;
     }
     result = result.substr(0, 64);
+    // cout << result << endl;
     reverse(result.begin(), result.end());
     result = binaryToHexadecimal(result);
-
+    // cout << result << endl;
     return result;
 }
 
@@ -179,10 +178,11 @@ void labelParser(ifstream& in){
             }
         }
     }
-    
+    in.clear();
+    in.seekg(0);
 }
 
-void executeInstruction(string s, int lineNumber){
+void executeInstruction(string s, int& lineNumber, ifstream& in){
     char iterator = s[0];
     string temp[5] = {"", "", "", "", ""};
 
@@ -219,11 +219,11 @@ void executeInstruction(string s, int lineNumber){
         SInstructionExecutor(temp[0], temp[3], temp[1], temp[2]);
     }
     else if(BFormatInstructions.find(temp[0]) != BFormatInstructions.cend()){
-        BInstructionExecutor(temp[0], temp[1], temp[2], temp[3], lineNumber);
+        BInstructionExecutor(temp[0], temp[1], temp[2], temp[3], lineNumber, in);
     }
     else if(UFormatInstructions.find(temp[0]) != UFormatInstructions.cend()){
         string decimalOffset = "";
-        if(temp[2] == "0x"){
+        if(temp[2].substr(0, 2) == "0x"){
             temp[2] = temp[2].substr(temp[2].size() - 5); 
             // Last 5 hexadecimal bits are considered == 20 binary bits.
             decimalOffset = hexadecimalToDecimal(temp[2]);
@@ -231,7 +231,10 @@ void executeInstruction(string s, int lineNumber){
         else{
             decimalOffset = temp[2];
         }
-        UInstructionExecutor(temp[0], temp[1], temp[2]);
+        UInstructionExecutor(temp[0], temp[1], decimalOffset);
+    }
+    else if(JFormatInstructions.find(temp[0]) != JFormatInstructions.cend()){
+        JInstructionExecutor(temp[0], temp[1], temp[2], lineNumber, in);
     }
 }
 
@@ -240,6 +243,7 @@ void RInstructionExecutor(string op, string rd, string rs1, string rs2){
     rs2 = regNumToRegValue[regNameToRegNum[rs2]];
     string result = RFunctionMap[op](rs1, rs2);
     regNumToRegValue[regNameToRegNum[rd]] = result;
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
 void IInstructionExecutor1(string op, string rd, string rs1, string imm){
@@ -247,6 +251,7 @@ void IInstructionExecutor1(string op, string rd, string rs1, string imm){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     string result = IFunctionMap[op](rs1, imm);
     regNumToRegValue[regNameToRegNum[rd]] = result;
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
 void IInstructionExecutor2(string op, string rd, string rs1, string offset){
@@ -278,6 +283,7 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     reverse(result.begin(), result.end());
 
     regNumToRegValue[regNameToRegNum[rd]] = result;
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
 void SInstructionExecutor(string op, string rs1, string rs2, string offset){
@@ -297,9 +303,10 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
     }
 
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
-void BInstructionExecutor(string op, string rs1, string rs2, string label, int lineNumber){
+void BInstructionExecutor(string op, string rs1, string rs2, string label, int& lineNumber, ifstream& in){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     rs2 = regNumToRegValue[regNameToRegNum[rs2]];
 
@@ -308,13 +315,26 @@ void BInstructionExecutor(string op, string rs1, string rs2, string label, int l
     string Offset = to_string(offset);
     Offset = immediateGenerator(Offset);
     if(branchCondition == true){
+        lineNumber = labelData[label];
+        jumpToLine(in, lineNumber);
         regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], Offset);
     }
     
 }
 
+void JInstructionExecutor(string op, string rd, string label, int& lineNumber, ifstream& in){
+    rd = regNumToRegValue[regNameToRegNum[rd]];
+    int offset = (labelData[label] - lineNumber) * 4;
+    string Offset = to_string(offset);
+    Offset = immediateGenerator(Offset);
+    lineNumber = labelData[label];
+    jumpToLine(in, lineNumber);
+    regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], Offset);
+}
+
 void UInstructionExecutor(string op, string rd, string imm){
     imm = immediateGenerator(imm);
+    // cout << imm << endl;
     imm = RFunctionMap["sll"](imm, "000000000000000c");
     if(op == "lui"){
         regNumToRegValue[regNameToRegNum[rd]] = imm;
@@ -322,6 +342,7 @@ void UInstructionExecutor(string op, string rd, string imm){
     else{
         regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], imm);
     }
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
 string hexadecimalToDecimal(string s){
@@ -340,13 +361,96 @@ string hexadecimalToDecimal(string s){
     return to_string(decimalValue);
 }
 
+/**
+ * @brief Removes spaces in the start and end of a string.
+ * @param s A string
+ * @return parsed string with no spaces in the start and end.
+ */
+string lineParser(string s){
+    int index = 0;
+    int numberOfWhitespaces = 0;
+    while (true){
+        if(s[index] != ' ') break;
+        else numberOfWhitespaces += 1;
+        index++;
+    }
+    
+    s = s.substr(numberOfWhitespaces);
+
+    index = s.size() - 1;
+    numberOfWhitespaces = 0;
+    while (true){
+        if(s[index] != ' ') break;
+        else numberOfWhitespaces += 1;
+        index--;
+    }
+    s = s.substr(0,(s.size() - numberOfWhitespaces));
+
+    return s;
+}
+
+void setRegistersToZero(){
+    string zero = "0000000000000000";
+    for (size_t i = 0; i < 33; i++){
+        regNumToRegValue[i] = zero;
+    }
+}
+
+string step(ifstream& in, int& lineNumber){
+    if(in.eof()){
+        return "";
+    }
+
+    string s;
+    getline(in, s);
+    s = lineParser(s);
+
+    executeInstruction(s, lineNumber, in);
+
+    return s;
+}
+
+void run(ifstream& in, int& lineNumber){
+    string temp = "";
+    while (true){
+        temp = step(in, lineNumber);
+        if(temp == ""){
+            cout << "Execution reached end of the file" << endl;
+            break;
+        }
+        else{
+            cout << "Executed " << temp << "; " << "PC=0x" << regNumToRegValue[32] << endl;
+        }
+        lineNumber++;
+    }
+    
+}
+
+void getPC(){
+    cout << "PC=0x" << regNumToRegValue[32] << endl;
+}
+
+void jumpToLine(ifstream& in, int& lineNumber){
+    in.clear();
+    in.seekg(0);
+
+    string s = "";
+    for (size_t i = 0; i < lineNumber - 1; i++){
+        getline(in, s);
+        s = "";
+    }
+
+}
+
 void printRegisterValues(){
-    cout << "0x" << regNumToRegValue[1] << endl;
-    cout << "0x" << regNumToRegValue[2] << endl;
-    cout << "0x" << regNumToRegValue[3] << endl;
-    cout << "0x" << regNumToRegValue[4] << endl;
-    cout << "0x" << regNumToRegValue[5] << endl;
-    cout << "0x" << regNumToRegValue[6] << endl;
-    cout << "0x" << regNumToRegValue[7] << endl;
-    cout << "0x" << regNumToRegValue[8] << endl;
+    cout << "Registers: " << endl;
+    for (size_t i = 0; i < 32; i++){
+        if(i < 10){
+            cout << "x" << i << "  = " <<"0x"<< regNumToRegValue[i] << endl;
+        }
+        else{
+            cout << "x" << i << " = " <<"0x"<< regNumToRegValue[i] << endl;
+        }
+    }
+    // cout << endl;
 }
