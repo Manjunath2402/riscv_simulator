@@ -34,6 +34,8 @@ map<int, string> regNumToRegValue = {
 
 map<string, int> labelData;
 map<string, string> memory;
+set<int> breakPoints;
+
 map<string, function<string (string, string)>> RFunctionMap = {
     {"add", _add}, {"sub", _sub}, {"xor", _xor}, {"or", _or}, {"and", _and}, {"sll", _sll},
     {"srl", _srl}, {"sra", _sra}, {"slt", _slt}, {"sltu", _sltu}
@@ -515,7 +517,6 @@ string step(ifstream& in, int& lineNumber){
     s = lineParser(s);
 
     executeInstruction(s, lineNumber, in);
-    // lineNumber++;
 
     return s;
 }
@@ -523,6 +524,10 @@ string step(ifstream& in, int& lineNumber){
 void run(ifstream& in, int& lineNumber){
     string temp = "";
     while (true){
+        if(breakPoints.find(lineNumber) != breakPoints.cend()){
+            cout << "Execution stopped at break point: " << lineNumber << endl;
+            break; 
+        }
         temp = step(in, lineNumber);
         if(temp == ""){
             cout << "Execution reached end of the file" << endl;
@@ -533,6 +538,27 @@ void run(ifstream& in, int& lineNumber){
         }
     }
     
+}
+
+bool setBreakPoint(int atLine){
+    breakPoints.insert(atLine);
+    cout << "Break point set at line number: " << atLine << endl;
+    return true;
+}
+
+bool removeBreakPoint(int atLine){
+    if(breakPoints.find(atLine) != breakPoints.cend()){
+        breakPoints.erase(atLine);
+        cout << "Removed break point at line: " << atLine << endl;
+    }
+    else{
+        cout << "Break point was not set at line: "<<atLine<<" in the first place." << endl;
+    }
+    return true;
+}
+
+void clearBreakPoint(){
+    breakPoints.clear();
 }
 
 void printMemory(string address, int numberOfBytes){

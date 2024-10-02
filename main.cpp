@@ -33,6 +33,7 @@ int main(){
             initialiseDataSegment(inputFile);
             setBufferFromTextSeg(inputFile, lineNumber);
             setRegistersToZero();
+            clearBreakPoint();
         }
         else if(fields[0] == "step"){
             string temp = step(inputFile, lineNumber);
@@ -53,6 +54,12 @@ int main(){
         else if(fields[0] == "mem"){
             int bytes = stoi(fields[2]);
             printMemory(fields[1], bytes);
+        }
+        else if(fields[0] == "break"){
+            setBreakPoint(stoi(fields[1]));
+        }
+        else if(fields[0] == "del"){
+            removeBreakPoint(stoi(fields[2]));
         }
         else if(fields[0] == "exit"){
             cout << "Exiting the simulator." << endl;

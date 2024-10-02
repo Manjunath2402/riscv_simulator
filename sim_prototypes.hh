@@ -12,6 +12,9 @@ void setBufferFromTextSeg(ifstream& , int&);
 
 string step(ifstream& , int&);
 void run(ifstream&, int&);
+bool setBreakPoint(int );
+bool removeBreakPoint(int );
+void clearBreakPoint();
 
 void printMemory(string, int);
 void printRegisterValues();
