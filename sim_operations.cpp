@@ -456,6 +456,9 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
         if(sign == '8' || sign == '9' || sign == 'a' || sign == 'b' || sign == 'c' || sign == 'd' || sign == 'e' || sign == 'f'){
             sign = 'f';
         }
+        else{
+            sign = '0';
+        }
     }
 
     for (size_t i = 0; i < (16 - (2 * numberOfBytes)); i++){
