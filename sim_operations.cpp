@@ -63,6 +63,8 @@ set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
 set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
+int startOfTextSeg = 0;
+
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
     // cout << result << endl;
@@ -220,8 +222,8 @@ void initialiseDataSegment(ifstream& in){
             if(temp[0] == ".word") bytes = 4;
             temp[1] = temp[1].substr(2);
 
-            reverse(temp[1].begin(), temp[1].end());
-            for (size_t i = 0; i < bytes; i++){
+            // reverse(temp[1].begin(), temp[1].end());
+            for (int i = bytes - 1; i >= 0; i--){
                 memory[segmentStart] = temp[1].substr(2 * i, 2);
                 segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
             }
@@ -244,6 +246,7 @@ void setBufferFromTextSeg(ifstream& in, int& lineNumber){
         if(s == ".text") break;
     } while (!(in.eof()));
     lineNumber++;
+    startOfTextSeg = lineNumber;
 }
 
 void executeInstruction(string s, int& lineNumber, ifstream& in){
@@ -339,8 +342,7 @@ void IInstructionExecutor1(string op, string rd, string rs1, string imm, int& li
     
     if(op == "jalr"){
         regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
-        string pc = regNumToRegValue[32].substr(regNumToRegValue[32].size() - 6);
-        lineNumber = stoi(hexadecimalToDecimal(pc));
+        lineNumber = (stoi(hexadecimalToDecimal(result)) / 4) + startOfTextSeg;
         jumpToLine(in, lineNumber);
         regNumToRegValue[32] = result;
     }
@@ -368,22 +370,25 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
 
     for (size_t i = 0; i < numberOfBytes; i++){
         if(memory[effectiveAddress] == ""){
-            result += "00";
+            result = "00" + result;
         }
         else{
-            result += memory[effectiveAddress];
+            result = memory[effectiveAddress] + result;
         }
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
     }
     
-    char sign = result[2 * numberOfBytes - 1];
+    char sign = result[0];
     if(op == "lbu" || op == "lhu" || op == "lwu") sign = '0';
+    else{
+        if(sign == '8' || sign == '9' || sign == 'a' || sign == 'b' || sign == 'c' || sign == 'd' || sign == 'e' || sign == 'f'){
+            sign = 'f';
+        }
+    }
 
     for (size_t i = 0; i < (16 - (2 * numberOfBytes)); i++){
-        result += sign;
+        result = sign + result;
     }
-    
-    reverse(result.begin(), result.end());
 
     regNumToRegValue[regNameToRegNum[rd]] = result;
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
@@ -394,7 +399,6 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     rs2 = regNumToRegValue[regNameToRegNum[rs2]];
     string effectiveAddress = RFunctionMap["add"](rs1, offset);
-    reverse(rs2.begin(), rs2.end());
     // We are following little endian format, lsb at lower address.
     int numberOfBytes = 0;
     if(op == "sd") numberOfBytes = 8;
@@ -402,7 +406,7 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     else if(op == "sh") numberOfBytes = 2;
     else if(op == "sb") numberOfBytes = 1;
 
-    for (size_t i = 0; i < numberOfBytes; i++){
+    for (int i = numberOfBytes - 1; i >= 0; i--){
         memory[effectiveAddress] = rs2.substr(2 * i, 2);
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
     }
@@ -431,7 +435,7 @@ void BInstructionExecutor(string op, string rs1, string rs2, string label, int& 
 }
 
 void JInstructionExecutor(string op, string rd, string label, int& lineNumber, ifstream& in){
-    rd = regNumToRegValue[regNameToRegNum[rd]];
+    
     int offset = (labelData[label] - lineNumber) * 4;
     string Offset = to_string(offset);
     Offset = immediateGenerator(Offset);
