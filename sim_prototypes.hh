@@ -9,6 +9,7 @@
 string immediateGenerator(string );
 string decimalToBinary(string );
 string hexadecimalToDecimal(string );
+string decimalToHexadecimal(string );
 
 void labelParser(ifstream& );
 string lineParser(string );

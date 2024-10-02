@@ -1,5 +1,7 @@
 #include "./sim_prototypes.hh"
 
+extern map<int, char> decToHex;
+
 map<string, int> regNameToRegNum = {
 
     {"x0", 0}, {"x1", 1}, {"x2", 2}, {"x3", 3}, {"x4", 4}, {"x5", 5},
@@ -123,7 +125,7 @@ string decimalToBinary(string s){
 
         dec/=2;
     }
-    while (bin.size() < 21)
+    while (bin.size() < 64)
     {
         bin += '0';
     }
@@ -250,37 +252,53 @@ void initialiseDataSegment(ifstream& in){
         else if(s == ".text") break;
         else if(s == "") continue;
         if(flag == 1){
-            string temp[3] = {"", "", ""};
+            vector<string> fields(100);
+            string temp = "";
 
             int index = 0;
             int count = 0;
+            int spaceFlag = 0;
             while (true){
-                if(s[index] != ' ' && s[index] != '\0'){
-                    temp[2] += s[index];
-                }
-                else{
-                    temp[count] = temp[2];
+                if((s[index] == ' ' && spaceFlag == 0) && s[index] != '\0'){
                     count++;
-                    temp[2] = "";
+                    spaceFlag = 1;
                 }
+                else if(s[index] != ',' && s[index] != '\0'){
+                    fields[count] += s[index];
+                    spaceFlag = 0;
+                }
+
                 if(s[index] == '\0') break;
                 index++;
             }
             
             int bytes = 8;
             int bits = 16;
-            if(temp[0] == ".word") {bytes = 4; bits = 8;}
-            temp[1] = temp[1].substr(2);
-            int size = temp[1].size();
+            if(fields[0] == ".word") {bytes = 4; bits = 8;}
             
-            for (int i = 0; i < (bits - size); i++){
-                temp[1] = '0' + temp[1];
+            for (int i = 1; i <= count; i++){
+                if(fields[i].substr(0, 2) == "0x"){
+                    fields[i] = fields[i].substr(2);
+                }
+                else{
+                    fields[i] = decimalToHexadecimal(fields[i]);
+                    if(fields[0] == ".word"){
+                        fields[i] = fields[i].substr(8);
+                    }
+                }
+
+                int size = fields[i].size();
+                
+                for (int j = 0; j < (bits - size); j++){
+                    fields[i] = '0' + fields[i];
+                }
+
+                for (int j = bytes - 1; j >= 0; j--){
+                    memory[segmentStart] = fields[i].substr(2 * j, 2);
+                    segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
+                }
             }
             
-            for (int i = bytes - 1; i >= 0; i--){
-                memory[segmentStart] = temp[1].substr(2 * i, 2);
-                segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
-            }
         }
     }
     
@@ -526,6 +544,12 @@ string hexadecimalToDecimal(string s){
     }
     
     return to_string(decimalValue);
+}
+
+string decimalToHexadecimal(string s){
+    string result = decimalToBinary(s);
+    result = binaryToHexadecimal(result);
+    return result;
 }
 
 /**
