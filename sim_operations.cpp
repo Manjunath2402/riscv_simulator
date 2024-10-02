@@ -517,16 +517,20 @@ string step(ifstream& in, int& lineNumber){
     }
 
     string s;
+    string currentPC = regNumToRegValue[32];
     getline(in, s);
     s = lineParser(s);
 
     executeInstruction(s, lineNumber, in);
+
+    cout << "Executed: " << s << "; PC=0x" << currentPC << endl;
 
     return s;
 }
 
 void run(ifstream& in, int& lineNumber){
     string temp = "";
+
     while (true){
         if(breakPoints.find(lineNumber) != breakPoints.cend()){
             cout << "Execution stopped at break point: " << lineNumber << endl;
@@ -536,9 +540,6 @@ void run(ifstream& in, int& lineNumber){
         if(temp == ""){
             cout << "Execution reached end of the file" << endl;
             break;
-        }
-        else{
-            cout << "Executed " << temp << "; " << "PC=0x" << regNumToRegValue[32] << endl;
         }
     }
     
@@ -580,10 +581,6 @@ void printMemory(string address, int numberOfBytes){
         address = address64bits.substr(address64bits.size() - 5);
     }
     
-}
-
-void getPC(){
-    cout << "PC=0x" << regNumToRegValue[32] << endl;
 }
 
 void jumpToLine(ifstream& in, int& lineNumber){

@@ -18,7 +18,6 @@ void clearBreakPoint();
 
 void printMemory(string, int);
 void printRegisterValues();
-void getPC();
 
 void executeInstruction(string, int&, ifstream&);
 void RInstructionExecutor(string, string, string, string);
