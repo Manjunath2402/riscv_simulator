@@ -8,7 +8,7 @@ void labelParser(ifstream& );
 string lineParser(string );
 void setRegistersToZero();
 void initialiseDataSegment(ifstream&);
-void setBufferFromTextSeg(ifstream& );
+void setBufferFromTextSeg(ifstream& , int&);
 
 string step(ifstream& , int&);
 void run(ifstream&, int&);
