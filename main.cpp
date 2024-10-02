@@ -36,13 +36,8 @@ int main(){
             clearBreakPoint();
         }
         else if(fields[0] == "step"){
-            string temp = step(inputFile, lineNumber);
-            if(temp == ""){
+            if(step(inputFile, lineNumber) == ""){
                 cout << "Nothing to step" << endl;
-            }
-            else{
-                cout << "Executed instruction " << temp << "; ";
-                getPC();
             }
         }
         else if(fields[0] == "run"){
