@@ -33,8 +33,10 @@ map<int, string> regNumToRegValue = {
 };
 
 map<string, int> labelData;
+// map<int, int> functionBlock;
 map<string, string> memory;
 set<int> breakPoints;
+// set<int> jalrLineNumbers;
 
 map<string, function<string (string, string)>> RFunctionMap = {
     {"add", _add}, {"sub", _sub}, {"xor", _xor}, {"or", _or}, {"and", _and}, {"sll", _sll},
@@ -63,13 +65,13 @@ set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
 set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
-stack<funCallStackInfo> callStack;
+// stack<funCallStackInfo> callStack;
 
 int startOfTextSeg = 0;
 
-void callStackManager(int lineNumber){
-    callStack.top().currentLine = lineNumber;
-}
+// void callStackManager(int lineNumber){
+//     callStack.top().currentLine = lineNumber;
+// }
 
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
@@ -187,10 +189,51 @@ void labelParser(ifstream& in){
                 labelData[label] = lineNumber;
             }
         }
+
+        // // Identifying jalr instructions.
+        // int spaceFlag = 0;
+        // int colonFlag = 0;
+        // int count = 0;
+        // index = 0;
+        // iterator = s[0];
+        // temp = "";
+        
+        // while (iterator != ' ' || colonFlag == 1){
+        //     if(iterator == ':') colonFlag = 1;
+        //     else if(iterator != ' ') {
+        //         temp += iterator;
+        //         colonFlag = 0;    
+        //     }
+        //     iterator = s[index];
+        //     index += 1;
+        // }
+        
+        // if(temp == "jalr"){
+        //     jalrLineNumbers.insert(lineNumber);
+        // }
     }
     in.clear();
     in.seekg(0);
 }
+
+// void funBlockIdentifier(){
+//     map<string, int>::iterator labelsIterator = labelData.begin();
+//     set<int>::iterator setIterator;
+//     int line = 0;
+//     while (labelsIterator != labelData.end()){
+//         line = labelsIterator->second;
+//         setIterator = jalrLineNumbers.upper_bound(line);
+//         if(setIterator != jalrLineNumbers.end()){
+//             functionBlock[labelsIterator->second] = *setIterator;
+//         }
+//         labelsIterator++;
+//     }
+// }
+
+// void callStackMain(){
+//     funCallStackInfo Main = {"main", 0};
+//     callStack.push(Main);
+// }
 
 void initialiseDataSegment(ifstream& in){
     in.clear();
@@ -225,10 +268,15 @@ void initialiseDataSegment(ifstream& in){
             }
             
             int bytes = 8;
-            if(temp[0] == ".word") bytes = 4;
+            int bits = 16;
+            if(temp[0] == ".word") {bytes = 4; bits = 8;}
             temp[1] = temp[1].substr(2);
-
-            // reverse(temp[1].begin(), temp[1].end());
+            int size = temp[1].size();
+            
+            for (int i = 0; i < (bits - size); i++){
+                temp[1] = '0' + temp[1];
+            }
+            
             for (int i = bytes - 1; i >= 0; i--){
                 memory[segmentStart] = temp[1].substr(2 * i, 2);
                 segmentStart = RFunctionMap["add"](segmentStart, "0000000000000001");
@@ -612,5 +660,4 @@ void printRegisterValues(){
             cout << "x" << i << " = " <<"0x"<< regNumToRegValue[i] << endl;
         }
     }
-    // cout << endl;
 }

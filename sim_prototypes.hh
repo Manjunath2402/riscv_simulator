@@ -1,9 +1,10 @@
 #include "./alu_prototypes.hh"
 
-struct funCallStackInfo{
-    string functionLabel;
-    int currentLine;
-};
+// struct funCallStackInfo{
+//     string functionLabel;
+//     int currentLine;
+//     int maxLine;
+// };
 
 string immediateGenerator(string );
 string decimalToBinary(string );
@@ -14,6 +15,9 @@ string lineParser(string );
 void setRegistersToZero();
 void initialiseDataSegment(ifstream&);
 void setBufferFromTextSeg(ifstream& , int&);
+// void callStackMain();
+// void funBlockIdentifier();
+// void callStackManager(int );
 
 string step(ifstream& , int&);
 void run(ifstream&, int&);
