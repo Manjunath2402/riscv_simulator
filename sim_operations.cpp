@@ -273,10 +273,12 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
 
     if(RFormatInstructions.find(temp[0]) != RFormatInstructions.cend()){
         RInstructionExecutor(temp[0], temp[1], temp[2], temp[3]);
+        lineNumber++;
     }
     else if(IFormatInstructions1.find(temp[0]) != IFormatInstructions1.cend()){
         if(temp[0] != "jalr"){
             IInstructionExecutor1(temp[0], temp[1], temp[2], temp[3], lineNumber, in);
+            lineNumber++;
         }
         else{
             IInstructionExecutor1(temp[0], temp[1], temp[3], temp[2], lineNumber, in);
@@ -284,9 +286,11 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
     }
     else if(IFormatInstructions2.find(temp[0]) != IFormatInstructions2.cend()){
         IInstructionExecutor2(temp[0], temp[1], temp[3], temp[2]);
+        lineNumber++;
     }
     else if(SFormatInstructions.find(temp[0]) != SFormatInstructions.cend()){
         SInstructionExecutor(temp[0], temp[3], temp[1], temp[2]);
+        lineNumber++;
     }
     else if(BFormatInstructions.find(temp[0]) != BFormatInstructions.cend()){
         BInstructionExecutor(temp[0], temp[1], temp[2], temp[3], lineNumber, in);
@@ -310,6 +314,7 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
             decimalOffset = temp[2];
         }
         UInstructionExecutor(temp[0], temp[1], decimalOffset);
+        lineNumber++;
     }
     else if(JFormatInstructions.find(temp[0]) != JFormatInstructions.cend()){
         JInstructionExecutor(temp[0], temp[1], temp[2], lineNumber, in);
@@ -416,6 +421,10 @@ void BInstructionExecutor(string op, string rs1, string rs2, string label, int& 
         jumpToLine(in, lineNumber);
         regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], Offset);
     }
+    else{
+        regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+        lineNumber++;
+    }
     
 }
 
@@ -427,6 +436,7 @@ void JInstructionExecutor(string op, string rd, string label, int& lineNumber, i
     lineNumber = labelData[label];
     jumpToLine(in, lineNumber);
     regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+    regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], Offset);
 }
 
 void UInstructionExecutor(string op, string rd, string imm){
@@ -505,7 +515,7 @@ string step(ifstream& in, int& lineNumber){
     s = lineParser(s);
 
     executeInstruction(s, lineNumber, in);
-    lineNumber++;
+    // lineNumber++;
 
     return s;
 }
@@ -529,16 +539,15 @@ void printMemory(string address, int numberOfBytes){
 
     string byte = "";
     address = address.substr(2);
-    address = "00000000000" + address;
+    string address64bits = "00000000000" + address;
 
     for (size_t i = 0; i < numberOfBytes; i++){
-        byte = memory[address];
+        byte = memory[address64bits];
         if(byte == "") byte = "00";
         cout << "Memory[0x" << address << "] = 0x" << byte << endl;
 
-        address = "00000000000" + address;
-        address = RFunctionMap["add"](address, "0000000000000001");
-        address = address.substr(address.size() - 5);
+        address64bits = RFunctionMap["add"](address64bits, "0000000000000001");
+        address = address64bits.substr(address64bits.size() - 5);
     }
     
 }
