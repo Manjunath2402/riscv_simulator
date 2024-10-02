@@ -1,5 +1,10 @@
 #include "./alu_prototypes.hh"
 
+struct funCallStackInfo{
+    string functionLabel;
+    int currentLine;
+};
+
 string immediateGenerator(string );
 string decimalToBinary(string );
 string hexadecimalToDecimal(string );
@@ -12,6 +17,7 @@ void setBufferFromTextSeg(ifstream& , int&);
 
 string step(ifstream& , int&);
 void run(ifstream&, int&);
+void callStackManager(int );
 bool setBreakPoint(int );
 bool removeBreakPoint(int );
 void clearBreakPoint();

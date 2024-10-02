@@ -63,7 +63,13 @@ set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
 set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
+stack<funCallStackInfo> callStack;
+
 int startOfTextSeg = 0;
+
+void callStackManager(int lineNumber){
+    callStack.top().currentLine = lineNumber;
+}
 
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
@@ -281,7 +287,7 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
         lineNumber++;
     }
     else if(IFormatInstructions1.find(temp[0]) != IFormatInstructions1.cend()){
-        if(temp[0] != "jalr"){
+        if(regNameToRegNum.find(temp[2]) != regNameToRegNum.end()){
             IInstructionExecutor1(temp[0], temp[1], temp[2], temp[3], lineNumber, in);
             lineNumber++;
         }
@@ -582,6 +588,7 @@ void printMemory(string address, int numberOfBytes){
     }
     
 }
+
 
 void jumpToLine(ifstream& in, int& lineNumber){
     in.clear();

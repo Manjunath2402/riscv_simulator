@@ -56,6 +56,9 @@ int main(){
         else if(fields[0] == "del"){
             removeBreakPoint(stoi(fields[2]));
         }
+        else if(fields[0] == "show-stack"){
+            
+        }
         else if(fields[0] == "exit"){
             cout << "Exiting the simulator." << endl;
             inputFile.close();

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <functional>
 #include <set>
+#include <stack>
 using namespace std;
 
 /**
