@@ -783,7 +783,7 @@ void run(ifstream& in, int& lineNumber){
  */
 bool setBreakPoint(int atLine){
     breakPoints.insert(atLine);
-    cout << "Break point set at line number: " << atLine << endl;
+    cout << "breakpoint set at line " << atLine << endl;
     return true;
 }
 
@@ -794,7 +794,7 @@ bool setBreakPoint(int atLine){
 bool removeBreakPoint(int atLine){
     if(breakPoints.find(atLine) != breakPoints.cend()){
         breakPoints.erase(atLine);
-        cout << "Removed break point at line: " << atLine << endl;
+        // cout << "Removed break point at line: " << atLine << endl;
     }
     else{
         cout << "Break point was not set at line: "<<atLine<<" in the first place." << endl;
