@@ -382,10 +382,14 @@ void setBufferFromTextSeg(ifstream& in, int& lineNumber){
     lastLineOfInput = index;
 
     // If .text segment is not present in the file then it is considered .text segment starts from line number 1.
-    if(in.eof()){
+    // if(in.eof()){
+    //     startOfTextSeg = 1;
+    //     in.clear();
+    //     in.seekg(0);
+    // }
+
+    if(startOfTextSeg == 0){
         startOfTextSeg = 1;
-        in.clear();
-        in.seekg(0);
     }
     lineNumber = startOfTextSeg;
 
