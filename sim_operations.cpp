@@ -35,10 +35,10 @@ map<int, string> regNumToRegValue = {
 };
 
 map<string, int> labelData;
-// map<int, int> functionBlock;
+
 map<string, string> memory;
 set<int> breakPoints;
-// set<int> jalrLineNumbers;
+
 
 map<string, function<string (string, string)>> RFunctionMap = {
     {"add", _add}, {"sub", _sub}, {"xor", _xor}, {"or", _or}, {"and", _and}, {"sll", _sll},
@@ -67,13 +67,43 @@ set<string> BFormatInstructions = {"beq", "bne", "blt", "bge", "bgeu", "bltu"};
 set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
-// stack<funCallStackInfo> callStack;
-
 int startOfTextSeg = 0;
 
-// void callStackManager(int lineNumber){
-//     callStack.top().currentLine = lineNumber;
-// }
+stack<functionStack> callStack;
+functionStack functionCalls[100];
+int functionCallCount = 0;
+
+void createCallStack(){
+    functionCalls[0].updateLabel("main");
+    functionCalls[0].updateLine(0);
+    callStack.push(functionCalls[0]);
+    functionCallCount += 1;
+}
+
+void updateCallStack(int line, int flag, string label = ""){
+    if(flag == 0){
+        callStack.top().updateLine(line);
+    }
+    else if(flag == 1){
+        functionCalls[functionCallCount].updateLabel(label);
+        functionCalls[functionCallCount].updateLine(line);
+        callStack.push(functionCalls[functionCallCount]);
+    }
+    else if(flag == 2){
+        callStack.pop();
+        callStack.top().updateLine(line);
+    }
+}
+
+void printCallStack(){
+    stack<functionStack> copyStack(callStack);
+    functionStack temp;
+    cout << "Call Stack: " << endl;
+    while (!copyStack.empty()){
+        cout << copyStack.top().showLabel() << ": " << copyStack.top().showLineNumber() << endl;
+        copyStack.pop();
+    }
+}
 
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
@@ -192,50 +222,10 @@ void labelParser(ifstream& in){
             }
         }
 
-        // // Identifying jalr instructions.
-        // int spaceFlag = 0;
-        // int colonFlag = 0;
-        // int count = 0;
-        // index = 0;
-        // iterator = s[0];
-        // temp = "";
-        
-        // while (iterator != ' ' || colonFlag == 1){
-        //     if(iterator == ':') colonFlag = 1;
-        //     else if(iterator != ' ') {
-        //         temp += iterator;
-        //         colonFlag = 0;    
-        //     }
-        //     iterator = s[index];
-        //     index += 1;
-        // }
-        
-        // if(temp == "jalr"){
-        //     jalrLineNumbers.insert(lineNumber);
-        // }
     }
     in.clear();
     in.seekg(0);
 }
-
-// void funBlockIdentifier(){
-//     map<string, int>::iterator labelsIterator = labelData.begin();
-//     set<int>::iterator setIterator;
-//     int line = 0;
-//     while (labelsIterator != labelData.end()){
-//         line = labelsIterator->second;
-//         setIterator = jalrLineNumbers.upper_bound(line);
-//         if(setIterator != jalrLineNumbers.end()){
-//             functionBlock[labelsIterator->second] = *setIterator;
-//         }
-//         labelsIterator++;
-//     }
-// }
-
-// void callStackMain(){
-//     funCallStackInfo Main = {"main", 0};
-//     callStack.push(Main);
-// }
 
 void initialiseDataSegment(ifstream& in){
     in.clear();
@@ -275,6 +265,8 @@ void initialiseDataSegment(ifstream& in){
             int bytes = 8;
             int bits = 16;
             if(fields[0] == ".word") {bytes = 4; bits = 8;}
+            if(fields[0] == ".half") {bytes = 2; bits = 4;}
+            if(fields[0] == ".byte") {bytes = 1; bits = 2;}
             
             for (int i = 1; i <= count; i++){
                 if(fields[i].substr(0, 2) == "0x"){
@@ -285,12 +277,12 @@ void initialiseDataSegment(ifstream& in){
                     if(fields[0] == ".word"){
                         fields[i] = fields[i].substr(8);
                     }
-                }
-
-                int size = fields[i].size();
-                
-                for (int j = 0; j < (bits - size); j++){
-                    fields[i] = '0' + fields[i];
+                    else if(fields[0] == ".half"){
+                        fields[i] = fields[i].substr(12);
+                    }
+                    else if(fields[0] == ".byte"){
+                        fields[i] = fields[i].substr(14);
+                    }
                 }
 
                 for (int j = bytes - 1; j >= 0; j--){
@@ -318,6 +310,13 @@ void setBufferFromTextSeg(ifstream& in, int& lineNumber){
         if(s == ".text") break;
     } while (!(in.eof()));
     lineNumber++;
+
+    // If .text segment is not present in the file then it is considered .text segment starts from line number 1.
+    if(in.eof()){
+        lineNumber = 1;
+        in.clear();
+        in.seekg(0);
+    }
     startOfTextSeg = lineNumber;
 }
 
@@ -397,6 +396,7 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
         JInstructionExecutor(temp[0], temp[1], temp[2], lineNumber, in);
     }
     regNumToRegValue[0] = "0000000000000000";
+    updateCallStack(lineNumber - 1, 0);
 }
 
 void RInstructionExecutor(string op, string rd, string rs1, string rs2){
@@ -417,6 +417,7 @@ void IInstructionExecutor1(string op, string rd, string rs1, string imm, int& li
         lineNumber = (stoi(hexadecimalToDecimal(result)) / 4) + startOfTextSeg;
         jumpToLine(in, lineNumber);
         regNumToRegValue[32] = result;
+        updateCallStack(lineNumber, 2);
     }
     else{
         regNumToRegValue[regNameToRegNum[rd]] = result;
@@ -518,6 +519,7 @@ void JInstructionExecutor(string op, string rd, string label, int& lineNumber, i
     jumpToLine(in, lineNumber);
     regNumToRegValue[regNameToRegNum[rd]] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], Offset);
+    updateCallStack(lineNumber, 1, label);
 }
 
 void UInstructionExecutor(string op, string rd, string imm){
@@ -604,7 +606,26 @@ string step(ifstream& in, int& lineNumber){
 
     executeInstruction(s, lineNumber, in);
 
-    cout << "Executed: " << s << "; PC=0x" << currentPC << endl;
+    int index = 0;
+    int spaceFlag = 0;
+    string temp = "";
+    while (s[index] != '\0'){
+        if(s[index] == ':'){
+            temp = "";
+            spaceFlag = 1;
+        }
+        else if(s[index] == ' ' && spaceFlag == 0){
+            temp += s[index];
+            spaceFlag = 1;
+        }
+        else if(s[index] != ' '){
+            temp += s[index];
+            spaceFlag = 0;
+        }
+        index++;
+    }
+    
+    cout << "Executed: " << temp << "; PC=0x" << currentPC.substr(8) << endl;
 
     return s;
 }

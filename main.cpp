@@ -2,8 +2,7 @@
 
 int main(){
     ifstream inputFile;
-    // cout << immediateGenerator("2") << endl;
-    // cout << hexadecimalToDecimal("234fe") << endl;
+    
     int lineNumber;
     while (true){
         string input;
@@ -32,6 +31,7 @@ int main(){
             labelParser(inputFile);
             initialiseDataSegment(inputFile);
             setBufferFromTextSeg(inputFile, lineNumber);
+            createCallStack();
             setRegistersToZero();
             clearBreakPoint();
         }
@@ -57,7 +57,7 @@ int main(){
             removeBreakPoint(stoi(fields[2]));
         }
         else if(fields[0] == "show-stack"){
-            
+            printCallStack();
         }
         else if(fields[0] == "exit"){
             cout << "Exiting the simulator." << endl;

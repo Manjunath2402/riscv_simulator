@@ -1,10 +1,35 @@
 #include "./alu_prototypes.hh"
 
-// struct funCallStackInfo{
-//     string functionLabel;
-//     int currentLine;
-//     int maxLine;
-// };
+class functionStack{
+    string label;
+    int lineNumber;
+
+    public:
+    functionStack(string s, int l) : label(s), lineNumber(l) {}
+    functionStack() : label(""), lineNumber(0) {}
+
+    void updateLine(int l){
+        this->lineNumber = l;
+    }
+
+    void updateLabel(string s){
+        this->label = s;
+    }
+
+    string showLabel(){
+        return this->label;
+    }
+
+    int showLineNumber(){
+        return this->lineNumber;
+    }
+
+    functionStack& operator=(functionStack f){
+        this->label = f.label;
+        this->lineNumber = f.lineNumber;
+        return *this;
+    }
+};
 
 string immediateGenerator(string );
 string decimalToBinary(string );
@@ -16,18 +41,17 @@ string lineParser(string );
 void setRegistersToZero();
 void initialiseDataSegment(ifstream&);
 void setBufferFromTextSeg(ifstream& , int&);
-// void callStackMain();
-// void funBlockIdentifier();
-// void callStackManager(int );
 
 string step(ifstream& , int&);
 void run(ifstream&, int&);
-void callStackManager(int );
+void createCallStack();
+void updateCallStack(int, int, string);
 bool setBreakPoint(int );
 bool removeBreakPoint(int );
 void clearBreakPoint();
 
 void printMemory(string, int);
+void printCallStack();
 void printRegisterValues();
 
 void executeInstruction(string, int&, ifstream&);
