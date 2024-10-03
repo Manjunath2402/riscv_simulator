@@ -279,6 +279,11 @@ string _sra(string op1, string op2){
     return result;
 }
 
+/**
+ * @brief The ALU set less than operation. which sets given destination to 1 when the op1 is less than op2. else sets destionation to 0.
+ * @param op1, op2 Hexadecimal strings of 16 bits length that are to be compared. comparison(op1 < op2).
+ * @return returns a hexadecimal string of length which contain 1 is comparison is true else it is put to 0.
+ */
 string _slt(string op1, string op2){
     bool result = _isLessThan(op1, op2);
     if(result == true){
@@ -287,6 +292,12 @@ string _slt(string op1, string op2){
     return "0000000000000000";
 }
 
+/**
+ * @brief The ALU set less than unsigned operation. which sets given destination to 1 when the op1 is less than op2,
+ * else sets destionation to 0. Unsigned comparison is followed.
+ * @param op1, op2 Hexadecimal strings of 16 bits length that are to be compared. comparison(op1 < op2).
+ * @return returns a hexadecimal string of length which contain 1 is comparison is true else it is put to 0.
+ */
 string _sltu(string op1, string op2){
     bool result = _isLessThanUn(op1, op2);
     if(result == true){

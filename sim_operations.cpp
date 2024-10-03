@@ -68,6 +68,7 @@ set<string> JFormatInstructions = {"jal"};
 set<string> UFormatInstructions = {"lui", "auipc"};
 
 int startOfTextSeg = 0;
+int lastLineOfInput = 0;
 
 stack<functionStack> callStack;
 functionStack functionCalls[100];
@@ -93,15 +94,29 @@ void updateCallStack(int line, int flag, string label = ""){
         callStack.pop();
         callStack.top().updateLine(line);
     }
+    else if(flag == 4){
+        callStack.pop();
+    }
 }
 
 void printCallStack(){
     stack<functionStack> copyStack(callStack);
-    functionStack temp;
-    cout << "Call Stack: " << endl;
+    stack<functionStack> reverseStack;
     while (!copyStack.empty()){
-        cout << copyStack.top().showLabel() << ": " << copyStack.top().showLineNumber() << endl;
+        reverseStack.push(copyStack.top());
         copyStack.pop();
+    }
+
+    functionStack temp;
+    if(!reverseStack.empty()){
+        cout << "Call Stack: " << endl;
+        while (!reverseStack.empty()){
+            cout << reverseStack.top().showLabel() << ": " << reverseStack.top().showLineNumber() << endl;
+            reverseStack.pop();
+        }
+    }
+    else{
+        cout << "Empty Call Stack: Execution Complete" << endl;
     }
 }
 
@@ -195,7 +210,7 @@ void labelParser(ifstream& in){
     string s;
     int lineNumber = 0;
     while (true){
-        if(in.eof()) break;
+        if(in.eof()) {break;}
 
         getline(in, s);
         lineNumber++;
@@ -299,25 +314,35 @@ void initialiseDataSegment(ifstream& in){
 }
 
 void setBufferFromTextSeg(ifstream& in, int& lineNumber){
+    
     in.clear();
     in.seekg(0);
 
+    int index = 0;
     lineNumber = 0;
     string s = "";
-    do{
+    while (!(in.eof())){
         getline(in, s);
-        lineNumber++;
-        if(s == ".text") break;
-    } while (!(in.eof()));
-    lineNumber++;
+        s = lineParser(s);
+        index++;
+        if(s == ".text") {startOfTextSeg = index + 1;}
+    }
+    lastLineOfInput = index;
 
     // If .text segment is not present in the file then it is considered .text segment starts from line number 1.
     if(in.eof()){
-        lineNumber = 1;
+        startOfTextSeg = 1;
         in.clear();
         in.seekg(0);
     }
-    startOfTextSeg = lineNumber;
+    lineNumber = startOfTextSeg;
+
+    in.clear();
+    in.seekg(0);
+    for (int i = 1; i < startOfTextSeg; i++) {
+        getline(in, s);
+    }
+    
 }
 
 void executeInstruction(string s, int& lineNumber, ifstream& in){
@@ -396,7 +421,12 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
         JInstructionExecutor(temp[0], temp[1], temp[2], lineNumber, in);
     }
     regNumToRegValue[0] = "0000000000000000";
-    updateCallStack(lineNumber - 1, 0);
+    if(lineNumber != lastLineOfInput + 1){
+        updateCallStack(lineNumber - 1, 0);
+    }
+    else{
+        updateCallStack(lineNumber - 1, 4); // clear stack.
+    }
 }
 
 void RInstructionExecutor(string op, string rd, string rs1, string rs2){
@@ -511,7 +541,7 @@ void BInstructionExecutor(string op, string rs1, string rs2, string label, int& 
 }
 
 void JInstructionExecutor(string op, string rd, string label, int& lineNumber, ifstream& in){
-    
+    updateCallStack(lineNumber, 0);
     int offset = (labelData[label] - lineNumber) * 4;
     string Offset = to_string(offset);
     Offset = immediateGenerator(Offset);
@@ -568,7 +598,7 @@ string lineParser(string s){
     int index = 0;
     int numberOfWhitespaces = 0;
     while (true){
-        if(s[index] != ' ') break;
+        if(s[index] != ' ' && s[index] != '\t') break;
         else numberOfWhitespaces += 1;
         index++;
     }
@@ -578,7 +608,7 @@ string lineParser(string s){
     index = s.size() - 1;
     numberOfWhitespaces = 0;
     while (true){
-        if(s[index] != ' ') break;
+        if(s[index] != ' ' && s[index] != '\t') break;
         else numberOfWhitespaces += 1;
         index--;
     }
