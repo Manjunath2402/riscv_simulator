@@ -1,3 +1,8 @@
+/**
+ * @file sim_operations.cpp
+ */
+
+
 #include "./sim_prototypes.hh"
 
 extern map<int, char> decToHex;
@@ -34,22 +39,27 @@ map<int, string> regNumToRegValue = {
     {32, "0000000000000000"} // This is PC register.
 };
 
+// This map stores the labels and their corresponding line numbers in the file.
 map<string, int> labelData;
 
+// This is memory map. This is used for both text and data segment.
 map<string, string> memory;
+// This set stores information about breakpoints.
 set<int> breakPoints;
 
-
+// A map of R type operations to their appropriate functions.
 map<string, function<string (string, string)>> RFunctionMap = {
     {"add", _add}, {"sub", _sub}, {"xor", _xor}, {"or", _or}, {"and", _and}, {"sll", _sll},
     {"srl", _srl}, {"sra", _sra}, {"slt", _slt}, {"sltu", _sltu}
 };
 
+// A map of I type operations to their appropriate functions.
 map<string, function<string (string, string)>> IFunctionMap = {
     {"addi", _add}, {"xori", _xor}, {"ori", _or}, {"andi", _and}, {"slli", _sll},
     {"srli", _srl}, {"srai", _sra}, {"slti", _slt}, {"sltiu", _sltu}, {"jalr", _add}
 };
 
+// A map of B type operations to their appropriate functions.
 map<string, function<bool (string, string)>> BFunctionMap = {
     {"beq", _isEqual}, {"bne", _isNotEqual}, {"bge", _isGreaterOrEqual},
     {"blt", _isLessThan}, {"bltu", _isLessThanUn}, {"bgeu", _isGreaterOrEqualUn}
@@ -70,10 +80,17 @@ set<string> UFormatInstructions = {"lui", "auipc"};
 int startOfTextSeg = 0;
 int lastLineOfInput = 0;
 
+/*
+    The function call stack which contains the functionStack objects. 
+    At max only 100 function stacks are possible.
+*/
 stack<functionStack> callStack;
 functionStack functionCalls[100];
 int functionCallCount = 0;
 
+/**
+ * @brief creates main function stack and pushes it in callStack at the start of loading the file.
+ */
 void createCallStack(){
     functionCalls[0].updateLabel("main");
     functionCalls[0].updateLine(0);
@@ -81,6 +98,13 @@ void createCallStack(){
     functionCallCount += 1;
 }
 
+/**
+ * @brief Updates the call stack when flag is 0 then the function updates only line number of the top element,
+ * when the flag is 1 then it pushes new function stack when flag is 2 it pops off the top element and updates new top element
+ * and when the flag is 4 then it just pop's the last element.
+ * @param line, flag, label line the line number to be updated and flag is the operation we will perform on call stack and label
+ * is a default parameter and need to be specified when flag is 1 i.e., to push new function stack.
+ */
 void updateCallStack(int line, int flag, string label = ""){
     if(flag == 0){
         callStack.top().updateLine(line);
@@ -99,6 +123,9 @@ void updateCallStack(int line, int flag, string label = ""){
     }
 }
 
+/**
+ * @brief Just prints the call stack.
+ */
 void printCallStack(){
     stack<functionStack> copyStack(callStack);
     stack<functionStack> reverseStack;
@@ -120,6 +147,11 @@ void printCallStack(){
     }
 }
 
+/**
+ * @brief Given a string of decimal number, coverts it into a hexadecimal string of length 16 bits.
+ * @param op1 The decimal string to be converted.
+ * @return returns a Hexadecimal string which is of length 16 bits.
+ */
 string immediateGenerator(string op1){
     string result = decimalToBinary(op1);
     // cout << result << endl;
@@ -199,7 +231,7 @@ string decimalToBinary(string s){
 
 
 /**
- * @brief Goes through the file once and gets the label and their corresponding line numbers.
+ * @brief Goes through the file once and gets the label and their corresponding line numbers and stores them in labelData map.
  * @param in a reference to the file stream of the input file
  * @return return void.
  */
@@ -242,6 +274,11 @@ void labelParser(ifstream& in){
     in.seekg(0);
 }
 
+/**
+ * @brief This initialises the data segment memory mentioned in the file with the file below .data segment.
+ * supports .dword, .word, .half, .byte in both hexadecimal and decimal format.
+ * @param in A reference to input file buffer.
+ */
 void initialiseDataSegment(ifstream& in){
     in.clear();
     in.seekg(0);
@@ -313,6 +350,11 @@ void initialiseDataSegment(ifstream& in){
     in.seekg(0);
 }
 
+/**
+ * @brief This function sets the buffer of the input file buffer to first line of the text segment.
+ * This function is also used to get the starting line number of the text segment and last line number of the text segment.
+ * @param in, lineNumber A refernce to input file buffer and a reference to current line number in the input file.
+ */
 void setBufferFromTextSeg(ifstream& in, int& lineNumber){
     
     in.clear();
@@ -345,6 +387,12 @@ void setBufferFromTextSeg(ifstream& in, int& lineNumber){
     
 }
 
+/**
+ * @brief This the function used to execute a instruction it parser the instruction and appropriately calls a specific
+ * instruction executors.
+ * @param s, lineNumber, in A string which contains the instruction, a reference to line number of the instruction and
+ * a refernce to input file buffer which is requiered for branch, jal and jalr instructions.
+ */
 void executeInstruction(string s, int& lineNumber, ifstream& in){
     char iterator = s[0];
     string temp[5] = {"", "", "", "", ""};
@@ -429,6 +477,11 @@ void executeInstruction(string s, int& lineNumber, ifstream& in){
     }
 }
 
+/**
+ * @brief This Function is used to execute R type instructions. This function updates destination register
+ * program counter and this function internally uses appropriate ALU operation functions.
+ * @param op, rd, rs1, rs2 Strings of operation, destination register, operand register 1 and operand register 2.
+ */
 void RInstructionExecutor(string op, string rd, string rs1, string rs2){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     rs2 = regNumToRegValue[regNameToRegNum[rs2]];
@@ -437,6 +490,12 @@ void RInstructionExecutor(string op, string rd, string rs1, string rs2){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
+/**
+ * @brief This function is used for I type instruction other than load instructions. This function internally calls ALU
+ * operations function to perform appropriate actions.
+ * @param op, rd, rs1, imm, lineNumber, in string of operations, destination register, operand register 1, immediate value
+ * and refernces to input file stream and line number.
+ */
 void IInstructionExecutor1(string op, string rd, string rs1, string imm, int& lineNumber, ifstream& in){
     imm = immediateGenerator(imm);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
@@ -455,6 +514,10 @@ void IInstructionExecutor1(string op, string rd, string rs1, string imm, int& li
     }
 }
 
+/**
+ * @brief This functinon is used for Load instructions. Which used _add ALU operation internally.
+ * @param op, rd, rs1, offset string of operations, destination register, operand register 1 and offset of load instruction.
+ */
 void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     offset = immediateGenerator(offset);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
@@ -500,6 +563,12 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
+
+/**
+ * @brief The function is used for store instruction which internally uses the _add ALU opertion to calculate the 
+ * address from offset and operand register 1
+ * @param op, rs2, rs1, offset string of operations, operand register 2, operand register 1 and offset.
+ */
 void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     offset = immediateGenerator(offset);
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
@@ -565,6 +634,11 @@ void UInstructionExecutor(string op, string rd, string imm){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 }
 
+/**
+ * @brief Converts given decimal string to hexadecimal 16 bit strings.
+ * @param s a string which contains a decimal value.
+ * @return The hexadecimal representation of the given input.
+ */
 string hexadecimalToDecimal(string s){
     int multiplier = 1;
     int decimalValue = 0;
@@ -617,6 +691,9 @@ string lineParser(string s){
     return s;
 }
 
+/**
+ * @brief Used to set all regs to zero.
+ */
 void setRegistersToZero(){
     string zero = "0000000000000000";
     for (size_t i = 0; i < 33; i++){
@@ -624,6 +701,11 @@ void setRegistersToZero(){
     }
 }
 
+/**
+ * @brief This function used to execute only one instruction in the file.
+ * @param in, lineNumber the input file stream and line number to determine which instruction should be executed.
+ * @return a string of the executed instruction.
+ */
 string step(ifstream& in, int& lineNumber){
     if(in.eof()){
         return "";
@@ -660,6 +742,10 @@ string step(ifstream& in, int& lineNumber){
     return s;
 }
 
+/**
+ * @brief To continuously execute step until end of the file or upto a breakpoint.
+ * @param in, lineNumber The input file stream and lineNumber to determine from where the run should be performed.
+ */
 void run(ifstream& in, int& lineNumber){
     string temp = "";
 
@@ -677,12 +763,20 @@ void run(ifstream& in, int& lineNumber){
     
 }
 
+/**
+ * @brief sets break point at given line number.
+ * @param atLine The line number at which the break point is to be set.
+ */
 bool setBreakPoint(int atLine){
     breakPoints.insert(atLine);
     cout << "Break point set at line number: " << atLine << endl;
     return true;
 }
 
+/**
+ * @brief Used remove previously given breakpoint, if the break point is not present prints and error message.
+ * @param atLine The line number of the break point to be removed.
+ */
 bool removeBreakPoint(int atLine){
     if(breakPoints.find(atLine) != breakPoints.cend()){
         breakPoints.erase(atLine);
@@ -694,10 +788,17 @@ bool removeBreakPoint(int atLine){
     return true;
 }
 
+/**
+ * @brief Clear all the breakpoint previously given input.
+ */
 void clearBreakPoint(){
     breakPoints.clear();
 }
-
+ 
+/**
+ * @brief print the memory at address given, number
+ * @param address, numberOfBytes The address of memory location and number of bytes of memory to be printed.
+ */
 void printMemory(string address, int numberOfBytes){
 
     string byte = "";
@@ -715,7 +816,9 @@ void printMemory(string address, int numberOfBytes){
     
 }
 
-
+/**
+ * @brief Makes the input file buffer to go to the given line.
+ */
 void jumpToLine(ifstream& in, int& lineNumber){
     in.clear();
     in.seekg(0);
@@ -728,6 +831,9 @@ void jumpToLine(ifstream& in, int& lineNumber){
 
 }
 
+/**
+ * @brief Prints the values in the registers.
+ */
 void printRegisterValues(){
     cout << "Registers: " << endl;
     for (size_t i = 0; i < 32; i++){
