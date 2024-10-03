@@ -80,6 +80,16 @@ set<string> UFormatInstructions = {"lui", "auipc"};
 int startOfTextSeg = 0;
 int lastLineOfInput = 0;
 
+void setMemoryToZero(){
+    map<string, string>::iterator it = memory.begin();
+
+    while (it != memory.end()){
+        it->second = "00";
+        it++;
+    }
+    
+}
+
 /*
     The function call stack which contains the functionStack objects. 
     At max only 100 function stacks are possible.

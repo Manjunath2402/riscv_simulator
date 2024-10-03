@@ -39,6 +39,7 @@ string decimalToHexadecimal(string );
 void labelParser(ifstream& );
 string lineParser(string );
 void setRegistersToZero();
+void setMemoryToZero();
 void initialiseDataSegment(ifstream&);
 void setBufferFromTextSeg(ifstream& , int&);
 

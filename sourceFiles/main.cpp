@@ -27,11 +27,13 @@ int main(){
         if(fields[0] == "load"){
             inputFile.close();
             inputFile.open(fields[1], ios::in);
+            
 
             labelParser(inputFile);
             initialiseDataSegment(inputFile);
             setBufferFromTextSeg(inputFile, lineNumber);
             createCallStack();
+            setMemoryToZero();
             setRegistersToZero();
             clearBreakPoint();
         }
