@@ -187,7 +187,7 @@ string immediateGenerator(string op1){
  */
 string decimalToBinary(string s){
     string bin = "";
-    int dec = 0;
+    long long dec = 0;
     int i = 0;
     int check = -1;
 
@@ -594,7 +594,9 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     else if(op == "sw") numberOfBytes = 4;
     else if(op == "sh") numberOfBytes = 2;
     else if(op == "sb") numberOfBytes = 1;
-
+    if(numberOfBytes != 8){
+        rs2 = rs2.substr((8 - numberOfBytes) * 2);
+    }
     for (int i = numberOfBytes - 1; i >= 0; i--){
         memory[effectiveAddress] = rs2.substr(2 * i, 2);
         effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
