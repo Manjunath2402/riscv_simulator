@@ -68,6 +68,25 @@ int main(){
             inputFile.close();
             exit(0);
         }
+        else if(fields[0] == "cache_sim" && fields[1] == "enable"){
+
+        }
+        else if(fields[0] == "cache_sim" && fields[1] == "disable"){
+
+        }
+        else if(fields[0] == "cache_sim" && fields[1] == "status"){
+
+        }
+        else if(fields[0] == "cache_sim" && fields[1] == "invalidate"){
+
+        }
+        else if(fields[0] == "cache_sim" && fields[1] == "dump"){
+
+        }
+        else if(fields[0] == "cache_sim" && fields[1] == "stats"){
+
+        }
+        
         cout << endl;
     }
     

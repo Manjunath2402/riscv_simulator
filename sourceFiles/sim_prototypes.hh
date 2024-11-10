@@ -1,4 +1,4 @@
-#include "./alu_prototypes.hh"
+#include "./cache_prototypes.hh"
 
 class functionStack{
     string label;

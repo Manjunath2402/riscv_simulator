@@ -1,8 +1,6 @@
 /**
  * @file sim_operations.cpp
  */
-
-
 #include "./sim_prototypes.hh"
 
 extern map<int, char> decToHex;
