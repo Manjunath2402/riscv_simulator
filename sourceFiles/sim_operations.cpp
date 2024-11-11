@@ -4,6 +4,7 @@
 #include "./sim_prototypes.hh"
 
 extern map<int, char> decToHex;
+extern ofstream outputFile;
 cache myCache; 
 
 map<string, int> regNameToRegNum = {
@@ -576,7 +577,7 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 
     // cache data manager requires the effective address.
-    myCache.readManager(effectiveAddress);
+    myCache.readManager(effectiveAddress, outputFile);
 }
 
 
@@ -607,12 +608,12 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
             effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
         }
 
-        myCache.writeManager(effectiveAddress, blockData);
+        myCache.writeManager(effectiveAddress, blockData, outputFile);
     }
     else{
         string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
 
-        myCache.writeManager(effectiveAddress, blockData);
+        myCache.writeManager(effectiveAddress, blockData, outputFile);
     }
 
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");

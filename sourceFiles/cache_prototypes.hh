@@ -6,8 +6,6 @@ A set is a collection of blocks or lines. A block or a cache line will consist o
 dirty bit and the size of the block and additional info required for replacement.
 */
 
-string cacheState = "disabled";
-
 class cacheSet{
 
 private:
@@ -80,6 +78,7 @@ public:
 
     void validDataOutput(ofstream& , string setNum);
 
+    bool isClean(string tag);
 };
 
 class cache{
@@ -103,8 +102,8 @@ public:
 
     cache(int cSize, int bSize, string rpolicy, string wpolicy, int associativity);
     cache() {}
-    void readManager(string addr);
-    void writeManager(string addr, string givenData);
+    void readManager(string addr, ofstream& );
+    void writeManager(string addr, string givenData, ofstream& );
 
     string givenDataManager(string addr, string newData, int size);
     

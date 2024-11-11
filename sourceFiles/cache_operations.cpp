@@ -1,6 +1,6 @@
 #include "cache_prototypes.hh"
 extern map<string, string> memory;
-
+string cacheState = "disabled";
 // given a tag return if it is present in the cache or not.
 // If present update the recent access data.
 int cacheSet::isPresent(string requiredTag){
@@ -113,11 +113,20 @@ void cacheSet::updateData(string givenData, int lineNumber){
     updateIndex(lineNumber);
 }
 
+bool cacheSet::isClean(string t){
+    for(int i = 0; i < lines; i++){
+        if(tag[i] == t) return dirtyBit[i];
+    }
+    return false;
+}
+
 // We are assuming 64 bit addressing.
 cache::cache(int cSize, int bSize, string rpolicy, string wpolicy, int associativity){
     hits = 0;
     misses = 0;
     this->blockSize = bSize;
+    indexBits = 0;
+    byteOffsetBits = 0;
 
     replacePolicy = rpolicy;
     writePolicy = wpolicy;
@@ -145,7 +154,7 @@ cache::cache(int cSize, int bSize, string rpolicy, string wpolicy, int associati
 }
 
 // 16 hexadecimal bits addr, size is in bytes.
-void cache::readManager(string addr){
+void cache::readManager(string addr, ofstream& outFile){
     // Get the aligned address of the block.
     string bin = hexadecimalToBinary(addr);
     
@@ -163,6 +172,11 @@ void cache::readManager(string addr){
         int lineIndex = cacheMem[in].isPresent(tag);
         if(lineIndex != -1){
             hits += 1;
+
+            // Update in outFile.
+            outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Hit, " << "Tag: " << tag << ", " << ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty");
+            outFile << '\n'; 
         }
 
         // If the required tag is not present in the cache set.
@@ -177,6 +191,10 @@ void cache::readManager(string addr){
             }
 
             cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+
+            outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+            outFile << '\n'; 
         }
     }
 
@@ -195,6 +213,10 @@ void cache::readManager(string addr){
         }
 
         cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+
+        outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+        outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+        outFile << '\n';
     }
 
     // If it is fully assoicative.
@@ -204,6 +226,9 @@ void cache::readManager(string addr){
             
             if(lineIndex != -1){
                 hits += 1;
+                outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+                outFile << "Hit, " << "Tag: " << tag << ", " << ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty");
+                outFile << '\n';
             }
 
             else {
@@ -216,6 +241,10 @@ void cache::readManager(string addr){
                 }
 
                 cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+
+                outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+                outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+                outFile << '\n';
             }
         }
 
@@ -231,12 +260,16 @@ void cache::readManager(string addr){
             }
 
             cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+
+            outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+            outFile << '\n';
         }
     }
 }
 
 // 16 hexadecimal bits addr. givenData is the modified block data.
-void cache::writeManager(string addr, string givenData) {
+void cache::writeManager(string addr, string givenData, ofstream& outFile) {
     string bin = hexadecimalToBinary(addr);
 
     string in = bin.substr(64 - (byteOffsetBits + indexBits), indexBits);
@@ -250,6 +283,9 @@ void cache::writeManager(string addr, string givenData) {
         if(lineIndex != -1){
             hits += 1;
             cacheMem[in].updateData(givenData, lineIndex);
+            outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Hit, " << "Tag: " << tag << ", " << ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty");
+            outFile << '\n';
         }
 
         // If the write policy is write through then no need to put the required data in cache.
@@ -260,6 +296,10 @@ void cache::writeManager(string addr, string givenData) {
             if(writePolicy == "WB"){
                 cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
             }
+
+            outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+            outFile << '\n';
         }
     }
 
@@ -271,6 +311,10 @@ void cache::writeManager(string addr, string givenData) {
 
         if(writePolicy == "WB")
             cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+
+        outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+        outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+        outFile << '\n';
     }
 
     // If the cache is fully associative
@@ -280,6 +324,10 @@ void cache::writeManager(string addr, string givenData) {
             if(lineIndex != -1){
                 hits += 1;
                 cacheMem[in].updateData(givenData, lineIndex);
+                outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+                outFile << "Hit, " << "Tag: " << tag << ", " << ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty");
+                outFile << '\n';
+
             }
 
             else {
@@ -287,6 +335,10 @@ void cache::writeManager(string addr, string givenData) {
 
                 if(writePolicy == "WB")
                     cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+
+                outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+                outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+                outFile << '\n';
             }
         }
         else{
@@ -296,6 +348,10 @@ void cache::writeManager(string addr, string givenData) {
 
             if(writePolicy == "WB")
                 cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+
+            outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
+            outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
+            outFile << '\n';
         }
     }
 }
@@ -313,10 +369,10 @@ string cache::givenDataManager(string addr, string newData, int size) {
     alignedAddress = tag + in;
 
     for(int i = 0; i < byteOffsetBits; i++) alignedAddress += "0";
-    alignedAddress = binaryToHexadecimal(alignedAddress);
 
     string temp = alignedAddress.substr(64 - byteOffsetBits, byteOffsetBits);
     
+    alignedAddress = binaryToHexadecimal(alignedAddress);
     string requiredData = "";
     int keep = 0;
     for(int i = 0; i < blockSize; i++){
@@ -356,5 +412,5 @@ void cacheSet::validDataOutput(ofstream& outFile, string in){
 void cache::printCacheStats(){
     cout << "D-cache statistics: " << "Accesses=" << (hits + misses) << ", ";
     cout << "Hit=" << hits << ", " << "Miss=" << misses << ", ";
-    cout << "Hit Rate=" << float(hits / (hits + misses)) << '\n';
+    cout << "Hit Rate=" << float(hits) / (hits + misses) << '\n';
 }

@@ -2,13 +2,13 @@
 
 extern string cacheState;
 extern cache myCache;
+ofstream outputFile;
 
 int main(){
     ifstream inputFile;
 
     ifstream configFile;
     ofstream dumpFile;
-    ofstream outputFile;
     string cacheConfigInfo[5];
     string filename = "";
 
@@ -81,7 +81,7 @@ int main(){
             configFile.open(fields[2], ios::in);
 
             for(int i = 0; i<5; i++){
-                getline(cin, cacheConfigInfo[i]);
+                getline(configFile, cacheConfigInfo[i]);
                 cacheConfigInfo[i] = lineParser(cacheConfigInfo[i]);
             }
 
@@ -100,10 +100,10 @@ int main(){
                 if(filename[i] == '.') break;
             }
 
-            string temp = filename.substr(0, i);
+            string temp = filename.substr(0, i + 1);
             temp = temp + "output";
             
-            outputFile.open(temp, ios::app);
+            outputFile.open(temp, ios::out);
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "disable"){
@@ -130,7 +130,7 @@ int main(){
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "dump"){
-            dumpFile.open(fields[2], ios::app);
+            dumpFile.open(fields[2], ios::out);
             myCache.dumpData(dumpFile);
             dumpFile.close();
         }
