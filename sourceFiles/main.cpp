@@ -1,8 +1,17 @@
 #include "./sim_prototypes.hh"
 
+extern string cacheState;
+extern cache myCache;
+
 int main(){
     ifstream inputFile;
-    
+
+    ifstream configFile;
+    ofstream dumpFile;
+    ofstream outputFile;
+    string cacheConfigInfo[5];
+    string filename = "";
+
     int lineNumber;
     while (true){
         string input;
@@ -27,7 +36,7 @@ int main(){
         if(fields[0] == "load"){
             inputFile.close();
             inputFile.open(fields[1], ios::in);
-        
+            filename = fields[1];
             // to clear all things set from previous load.
             setMemoryToZero();
             setRegistersToZero();
@@ -69,22 +78,65 @@ int main(){
             exit(0);
         }
         else if(fields[0] == "cache_sim" && fields[1] == "enable"){
+            configFile.open(fields[2], ios::in);
 
+            for(int i = 0; i<5; i++){
+                getline(cin, cacheConfigInfo[i]);
+                cacheConfigInfo[i] = lineParser(cacheConfigInfo[i]);
+            }
+
+            int cacheSize = stoi(cacheConfigInfo[0]);
+            int blockSize = stoi(cacheConfigInfo[1]);
+            int associativity = stoi(cacheConfigInfo[2]);
+
+            myCache = cache(cacheSize, blockSize, cacheConfigInfo[3], cacheConfigInfo[4], associativity);
+
+            cacheState = "enabled";
+
+            configFile.close();
+            int i = filename.size();
+            
+            for(; i >= 0; i--){
+                if(filename[i] == '.') break;
+            }
+
+            string temp = filename.substr(0, i);
+            temp = temp + "output";
+            
+            outputFile.open(temp, ios::app);
         }
+
         else if(fields[0] == "cache_sim" && fields[1] == "disable"){
-
+            cacheState = "disabled";
         }
+
         else if(fields[0] == "cache_sim" && fields[1] == "status"){
+            //check whether cache simulation has been enabled
+            if(cacheState == "disabled"){
+                cout << "Cache simulation is disabled." << endl;
+            }
 
+            else{
+                cout << "Cache Size: "<<cacheConfigInfo[0] << endl;
+                cout << "Block Size: "<<cacheConfigInfo[1] << endl;
+                cout << "Associativity: "<<cacheConfigInfo[2] << endl;
+                cout << "Replacement Policy: "<<cacheConfigInfo[3] << endl;
+                cout << "Write Back Policy: "<<cacheConfigInfo[4] << endl;
+            }
         }
+
         else if(fields[0] == "cache_sim" && fields[1] == "invalidate"){
-
+            
         }
+
         else if(fields[0] == "cache_sim" && fields[1] == "dump"){
-
+            dumpFile.open(fields[2], ios::app);
+            myCache.dumpData(dumpFile);
+            dumpFile.close();
         }
-        else if(fields[0] == "cache_sim" && fields[1] == "stats"){
 
+        else if(fields[0] == "cache_sim" && fields[1] == "stats"){
+            myCache.printCacheStats();
         }
         
         cout << endl;

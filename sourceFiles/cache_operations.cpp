@@ -44,7 +44,8 @@ void cacheSet::updateIndex(int lineNumber){
 
 // Based on the policy update the cache set with given data and given tag.
 // 0 is for LRU, 1 is FIFO and 2 is Random.
-void cacheSet::putNewData(string givenTag, string givenData, string policy = "LRU"){
+// givendata is of size of block of the cache.
+void cacheSet::putNewData(string givenTag, string givenData, string policy, string in){
     // If there are any invalid line we will use them.
     for(int i = 0; i < this->lines; i++){
         if(validBit[i] == 1){
@@ -63,6 +64,7 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy = "LR
         // recent access with number of lines - 1 should be replaced.
         for(int i = 0; i < lines; i++){
             if(recentAccess[i] == lines - 1){
+                if(dirtyBit[i] == 1) updateMemory(i, in);
                 tag[i] = givenTag;
                 data[i] = givenData;
                 updateAccess(i);
@@ -76,6 +78,7 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy = "LR
         // replace the block with time index 1. which is been in cache for long time.
         for(int i = 0; i < lines; i++){
             if(timeIndex[i] == 1){
+                if(dirtyBit[i] == 1) updateMemory(i, in);
                 tag[i] = givenTag;
                 data[i] = givenData;
                 updateAccess(i);
@@ -87,6 +90,19 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy = "LR
     // If Random policy
     else if(policy == "RANDOM"){
 
+    }
+}
+
+void cacheSet::updateMemory(int lineNumber, string in){
+    string t = tag[lineNumber] + in;
+
+    for(int i = blockSize; i >= 2; i /= 2){
+        t += "0";
+    }
+
+    for(int i = 0; i < blockSize; i++){
+        memory[t] = data[lineNumber].substr(2 * i, 2);
+        t = _add(t, "0000000000000001");
     }
 }
 
@@ -129,64 +145,63 @@ cache::cache(int cSize, int bSize, string rpolicy, string wpolicy, int associati
 }
 
 // 16 hexadecimal bits addr, size is in bytes.
-void cache::readManager(string addr, int offset, int size){
+void cache::readManager(string addr){
+    // Get the aligned address of the block.
     string bin = hexadecimalToBinary(addr);
     
-    // Index can be an empty string in case of fully associative cache.
     string in = bin.substr(64 - (byteOffsetBits + indexBits), indexBits);
-    string tag = bin.substr(0, tagBits);
+    string tag = bin.substr(0, tagBits); 
 
-    // If the cache is not fully associative and the index is present.
+    string alignedAddress = tag + in;
+    for(int i = 0; i < byteOffsetBits; i++) alignedAddress += "0";
+    alignedAddress = binaryToHexadecimal(alignedAddress);
+
+    // If the cache is not fully associative and the given index of set is present.
     if(in != "" && cacheMem.find(in) != cacheMem.end()){
+
         // if it is a hit.
         int lineIndex = cacheMem[in].isPresent(tag);
         if(lineIndex != -1){
             hits += 1;
         }
 
-        // If the required data is not present in the cache set.
+        // If the required tag is not present in the cache set.
+        // fetch the required data from memory and put it in the cache set.
         else if(lineIndex == -1){
             misses += 1;
 
-            string temp = tag + in;
-            for(int i = 0; i < byteOffsetBits; i++) temp += "0";
-            temp = binaryToHexadecimal(temp);
-
             string requiredData;
             for(int i = 0; i < blockSize; i++){
-                requiredData += (memory[temp] == "") ? "00" : memory[temp];
-                temp = _add(temp, "0000000000000001");
+                requiredData += (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+                alignedAddress = _add(alignedAddress, "0000000000000001");
             }
 
-            cacheMem[in].putNewData(tag, requiredData, replacePolicy);
+            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
         }
     }
 
-    // If the cache is not fully associative and if index is not present.
+    // If the cache is not fully associative and the given index of set is not present.
     else if(in != ""){
+        // Create the cache set.
+        // and put the required data in the cache set.
         cacheMem[in] = cacheSet(associativity, blockSize);
 
         misses += 1;
 
-        string temp = tag + in;
-        for(int i = 0; i < byteOffsetBits; i++) temp += "0";
-        temp = binaryToHexadecimal(temp);
-
         string requiredData;
         for(int i = 0; i < blockSize; i++){
-            requiredData += (memory[temp] == "") ? "00" : memory[temp];
-            temp = _add(temp, "0000000000000001");
+            requiredData += (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+            alignedAddress = _add(alignedAddress, "0000000000000001");
         }
 
-        cacheMem[in].putNewData(tag, requiredData, replacePolicy);
+        cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
     }
 
     // If it is fully assoicative.
     else{
-        // There will be only one set.
-        // We will name this set as full Associative set.
         if(cacheMem.find("fullAssociative") != cacheMem.end()){
             int lineIndex = cacheMem["fullAssociative"].isPresent(tag);
+            
             if(lineIndex != -1){
                 hits += 1;
             }
@@ -194,17 +209,13 @@ void cache::readManager(string addr, int offset, int size){
             else {
                 misses += 1;
 
-                string temp = tag + in;
-                for(int i = 0; i < byteOffsetBits; i++) temp += "0";
-                temp = binaryToHexadecimal(temp);
-
                 string requiredData;
                 for(int i = 0; i < blockSize; i++){
-                    requiredData += (memory[temp] == "") ? "00" : memory[temp];
-                    temp = _add(temp, "0000000000000001");
+                    requiredData += (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+                    alignedAddress = _add(alignedAddress, "0000000000000001");
                 }
 
-                cacheMem[in].putNewData(tag, requiredData, replacePolicy);
+                cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
             }
         }
 
@@ -213,18 +224,137 @@ void cache::readManager(string addr, int offset, int size){
 
             misses += 1;
 
-            string temp = tag + in;
-            for(int i = 0; i < byteOffsetBits; i++) temp += "0";
-            temp = binaryToHexadecimal(temp);
-
             string requiredData;
             for(int i = 0; i < blockSize; i++){
-                requiredData += (memory[temp] == "") ? "00" : memory[temp];
-                temp = _add(temp, "0000000000000001");
+                requiredData += (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+                alignedAddress = _add(alignedAddress, "0000000000000001");
             }
 
-            cacheMem[in].putNewData(tag, requiredData, replacePolicy);
+            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
         }
     }
 }
 
+// 16 hexadecimal bits addr. givenData is the modified block data.
+void cache::writeManager(string addr, string givenData) {
+    string bin = hexadecimalToBinary(addr);
+
+    string in = bin.substr(64 - (byteOffsetBits + indexBits), indexBits);
+    string tag = bin.substr(0, tagBits);
+
+    // If the cache is not fully associative and the index is present
+    if(in != "" && cacheMem.find(in) != cacheMem.end()){
+        int lineIndex = cacheMem[in].isPresent(tag);
+
+        //if it is a hit
+        if(lineIndex != -1){
+            hits += 1;
+            cacheMem[in].updateData(givenData, lineIndex);
+        }
+
+        // If the write policy is write through then no need to put the required data in cache.
+        // If the write policy is write back fetch the new block to cache.
+        else{
+            misses += 1;
+
+            if(writePolicy == "WB"){
+                cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+            }
+        }
+    }
+
+    // If the cache is not fully associative and the index is not present
+    else if(in != "" && cacheMem.find(in) == cacheMem.end()){
+        misses += 1;
+        // create the cache set. and if the it is a WB, put the block in cache.
+        cacheMem[in] = cacheSet(associativity, blockSize);
+
+        if(writePolicy == "WB")
+            cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+    }
+
+    // If the cache is fully associative
+    else{
+        if(cacheMem.find("fullAssociative") != cacheMem.end()){
+            int lineIndex = cacheMem[in].isPresent(tag);
+            if(lineIndex != -1){
+                hits += 1;
+                cacheMem[in].updateData(givenData, lineIndex);
+            }
+
+            else {
+                misses += 1;
+
+                if(writePolicy == "WB")
+                    cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+            }
+        }
+        else{
+            misses += 1;
+
+            cacheMem["fullAssociative"] = cacheSet(associativity, blockSize);
+
+            if(writePolicy == "WB")
+                cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+        }
+    }
+}
+
+// effective Address is the address where a memory operation is performed.
+// operation tells the data manager what kind of operation is performed.
+
+string cache::givenDataManager(string addr, string newData, int size) {
+    string alignedAddress = hexadecimalToBinary(addr);
+
+    string in = alignedAddress.substr(64 - (byteOffsetBits + indexBits), indexBits);
+    string tag = alignedAddress.substr(0, tagBits);
+    string byteOffset = alignedAddress.substr(64 - byteOffsetBits, byteOffsetBits);
+
+    alignedAddress = tag + in;
+
+    for(int i = 0; i < byteOffsetBits; i++) alignedAddress += "0";
+    alignedAddress = binaryToHexadecimal(alignedAddress);
+
+    string temp = alignedAddress.substr(64 - byteOffsetBits, byteOffsetBits);
+    
+    string requiredData = "";
+    int keep = 0;
+    for(int i = 0; i < blockSize; i++){
+        if(_isGreaterOrEqualUn(addr, alignedAddress) && keep != size){
+            requiredData += newData.substr(2 * keep, 2);
+            keep++;
+        }
+        else{
+            requiredData = (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+        }
+        alignedAddress = _add(alignedAddress, "0000000000000001");
+    }
+
+    return requiredData;
+}
+
+void cache::dumpData(ofstream& outFile){
+    // Iterate over all entrues of the cache and print any valid in them.
+    auto it = cacheMem.begin();
+
+    while (it != cacheMem.end()){
+        it->second.validDataOutput(outFile, it->first);
+        it++;
+    }
+    
+}
+
+void cacheSet::validDataOutput(ofstream& outFile, string in){
+    for(int i = 0; i < lines; i++){
+        if(validBit[i] == 0){
+            outFile << "Set: " << in << ", " << "Tag: " << tag[i] << ", ";
+            outFile << ((dirtyBit[i] == 0) ? "Clean" : "Dirty") << '\n';
+        }
+    }
+}
+
+void cache::printCacheStats(){
+    cout << "D-cache statistics: " << "Accesses=" << (hits + misses) << ", ";
+    cout << "Hit=" << hits << ", " << "Miss=" << misses << ", ";
+    cout << "Hit Rate=" << float(hits / (hits + misses)) << '\n';
+}

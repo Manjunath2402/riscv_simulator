@@ -10,6 +10,7 @@
 #include <functional>
 #include <set>
 #include <stack>
+#include <vector>
 using namespace std;
 
 /**

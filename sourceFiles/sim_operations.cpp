@@ -4,6 +4,7 @@
 #include "./sim_prototypes.hh"
 
 extern map<int, char> decToHex;
+cache myCache; 
 
 map<string, int> regNameToRegNum = {
 
@@ -573,6 +574,9 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
 
     regNumToRegValue[regNameToRegNum[rd]] = result;
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
+
+    // cache data manager requires the effective address.
+    myCache.readManager(effectiveAddress);
 }
 
 
@@ -592,12 +596,23 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     else if(op == "sw") numberOfBytes = 4;
     else if(op == "sh") numberOfBytes = 2;
     else if(op == "sb") numberOfBytes = 1;
-    if(numberOfBytes != 8){
-        rs2 = rs2.substr((8 - numberOfBytes) * 2);
+    rs2 = rs2.substr((8 - numberOfBytes) * 2);
+    
+    // If the write policy is write through we need to update in mem and cache.
+    if(myCache.writePolicy == "WT"){
+        string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
+
+        for (int i = numberOfBytes - 1; i >= 0; i--){
+            memory[effectiveAddress] = rs2.substr(2 * i, 2);
+            effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
+        }
+
+        myCache.writeManager(effectiveAddress, blockData);
     }
-    for (int i = numberOfBytes - 1; i >= 0; i--){
-        memory[effectiveAddress] = rs2.substr(2 * i, 2);
-        effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
+    else{
+        string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
+
+        myCache.writeManager(effectiveAddress, blockData);
     }
 
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");

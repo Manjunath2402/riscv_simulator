@@ -1,14 +1,12 @@
 #include "alu_prototypes.hh"
-#include <vector>
-#include <string>
-#include <map>
-using namespace std;
 
 /*
 cache is implemented as map from string(index) to set(collection of blocks(implemented as strings)).
 A set is a collection of blocks or lines. A block or a cache line will consist of a tag, valid bit,
 dirty bit and the size of the block and additional info required for replacement.
 */
+
+string cacheState = "disabled";
 
 class cacheSet{
 
@@ -60,7 +58,7 @@ public:
 
         data = vector<string> (associativity, temp);
     }
-
+    cacheSet() {}
     // based on a given address, checks whether the data for the requested addr is present or not
     // and return index if present else -1.
     int isPresent(string requiredTag);
@@ -71,22 +69,23 @@ public:
     void updateIndex(int lineNumber);
 
     // default replacement policy is LRU. puts new data in the cache set.
-    void putNewData(string givenTag, string givenData, string policy = "LRU");
+    void putNewData(string givenTag, string givenData, string policy, string in);
 
     // update data in the given cache set line.
     void updateData(string givenData, int lineNumber);
 
     string getData(int lineNumber) const ;
-};
 
-// cache manager prototypes.
+    void updateMemory(int lineNumber, string setNum);
+
+    void validDataOutput(ofstream& , string setNum);
+
+};
 
 class cache{
 
 private:
     map<string, cacheSet> cacheMem;
-    string replacePolicy;
-    string writePolicy;
     int numberOfSets;
     int associativity;
     int blockSize;
@@ -97,8 +96,20 @@ private:
 
     int hits;
     int misses;
+
 public:
+    string writePolicy;
+    string replacePolicy;
+
     cache(int cSize, int bSize, string rpolicy, string wpolicy, int associativity);
-    void readManager(string addr, int offset, int size);
-    void writeManager(string addr, string givenData, int offset, int size);
+    cache() {}
+    void readManager(string addr);
+    void writeManager(string addr, string givenData);
+
+    string givenDataManager(string addr, string newData, int size);
+    
+    void dumpData(ofstream&);
+
+    void printCacheStats();
 };
+
