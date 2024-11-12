@@ -1,3 +1,6 @@
 testFiles/*
 
 Report_Simulator.pdf
+sourceFiles/*.txt
+sourceFiles/*.output
+sourceFiles/*.s
