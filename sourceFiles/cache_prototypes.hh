@@ -67,7 +67,7 @@ public:
     void updateIndex(int lineNumber);
 
     // default replacement policy is LRU. puts new data in the cache set.
-    void putNewData(string givenTag, string givenData, string policy, string in);
+    void putNewData(string givenTag, string givenData, string policy, string in, char rw);
 
     // update data in the given cache set line.
     void updateData(string givenData, int lineNumber);
@@ -79,6 +79,8 @@ public:
     void validDataOutput(ofstream& , string setNum);
 
     bool isClean(string tag);
+
+    void invalidate(string in);
 };
 
 class cache{
@@ -112,6 +114,8 @@ public:
     void printCacheStats();
 
     void clearCache();
+
+    void cacheInvalidate();
 };
 
 string inHex(string s);

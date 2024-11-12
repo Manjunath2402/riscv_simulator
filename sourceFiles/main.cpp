@@ -12,10 +12,10 @@ int main(){
     string cacheConfigInfo[5];
     string filename = "";
     string fields[4] = {"", "", "", ""};
+    string input;
 
     int lineNumber;
     while (true){
-        string input;
         
         getline(cin, input);
         input = lineParser(input);
@@ -34,6 +34,7 @@ int main(){
         }
         
         if(fields[0] == "load"){
+            outputFile.close();
             inputFile.close();
             inputFile.open(fields[1], ios::in);
             filename = fields[1];
@@ -76,14 +77,15 @@ int main(){
             printCallStack();
         }
         else if(fields[0] == "exit"){
-            cout << "Exiting the simulator." << endl;
+            cout << "Exited the simulator." << endl;
             inputFile.close();
+            outputFile.close();
             exit(0);
         }
         else if(fields[0] == "cache_sim" && fields[1] == "enable"){
             configFile.open(fields[2], ios::in);
 
-            for(int i = 0; i<5; i++){
+            for(int i = 0; i < 5; i++){
                 getline(configFile, cacheConfigInfo[i]);
                 cacheConfigInfo[i] = lineParser(cacheConfigInfo[i]);
             }
@@ -97,6 +99,7 @@ int main(){
             cacheState = "enabled";
 
             configFile.close();
+
             int i = filename.size();
             
             for(; i >= 0; i--){
@@ -129,13 +132,23 @@ int main(){
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "invalidate"){
-            
+            if(cacheState == "disabled"){
+                cout << "Cache simulation is disabled." << endl;
+            }
+            else{
+                myCache.cacheInvalidate();
+            }
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "dump"){
-            dumpFile.open(fields[2], ios::out);
-            myCache.dumpData(dumpFile);
-            dumpFile.close();
+            if(cacheState == "enabled"){
+                dumpFile.open(fields[2], ios::out);
+                myCache.dumpData(dumpFile);
+                dumpFile.close();
+            }
+            else{
+                cout << "Cache simulation is disabled." << endl;
+            }
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "stats"){

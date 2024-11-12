@@ -47,12 +47,13 @@ void cacheSet::updateIndex(int lineNumber){
 // Based on the policy update the cache set with given data and given tag.
 // 0 is for LRU, 1 is FIFO and 2 is Random.
 // givendata is of size of block of the cache.
-void cacheSet::putNewData(string givenTag, string givenData, string policy, string in){
+void cacheSet::putNewData(string givenTag, string givenData, string policy, string in, char rw){
     // If there are any invalid line we will use them.
     for(int i = 0; i < this->lines; i++){
         if(validBit[i] == 1){
             tag[i] = givenTag;
             validBit[i] = 0;
+            dirtyBit[i] = ((rw == 'w') ? 1 : 0);
             data[i] = givenData;
             updateAccess(i);
             updateIndex(i);
@@ -69,6 +70,7 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy, stri
                 if(dirtyBit[i] == 1) updateMemory(i, in);
                 tag[i] = givenTag;
                 data[i] = givenData;
+                dirtyBit[i] = ((rw == 'w') ? 1 : 0);
                 updateAccess(i);
                 updateIndex(i);
                 return ;
@@ -83,6 +85,7 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy, stri
                 if(dirtyBit[i] == 1) updateMemory(i, in);
                 tag[i] = givenTag;
                 data[i] = givenData;
+                dirtyBit[i] = ((rw == 'w') ? 1 : 0);
                 updateAccess(i);
                 updateIndex(i);
                 return ;
@@ -91,7 +94,20 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy, stri
     }
     // If Random policy
     else if(policy == "RANDOM"){
+        random_device seedGenerator;
+        mt19937 gen(seedGenerator());
 
+        uniform_int_distribution<int> randLine(0, lines - 1);
+
+        int replaceLine = randLine(gen);
+
+        if(dirtyBit[replaceLine] == 1) updateMemory(replaceLine, in);
+        tag[replaceLine] = givenTag;
+        data[replaceLine] = givenData;
+        dirtyBit[replaceLine] = ((rw == 'w') ? 1 : 0);
+        updateAccess(replaceLine);
+        updateAccess(replaceLine);
+        return; 
     }
 }
 
@@ -120,6 +136,22 @@ bool cacheSet::isClean(string t){
         if(tag[i] == t) return dirtyBit[i];
     }
     return false;
+}
+
+void cacheSet::invalidate(string in){
+    string alignedAddress;
+    for(int i = 0; i < lines; i++){
+        if(dirtyBit[i] == 1){
+            alignedAddress = alignedAddress + in;
+            for(int j = blockSize; j >= 2; j /= 2) alignedAddress += "0";
+
+            for(int j = 0; j < blockSize; j++){
+                memory[alignedAddress] = data[i].substr(2 * j, 2);
+                alignedAddress = _add(alignedAddress, "0000000000000001");
+            }
+        }
+        validBit[i] = 1;
+    }
 }
 
 cache::cache(int cSize, int bSize, string rpolicy, string wpolicy, int associativity){
@@ -186,7 +218,7 @@ void cache::readManager(string addr, ofstream& outFile){
                 alignedAddress = _add(alignedAddress, "0000000000000001");
             }
 
-            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in, 'r');
 
             outFilePrint('R', addr, in, "Miss", tag, "Clean", outFile);
         }
@@ -206,7 +238,7 @@ void cache::readManager(string addr, ofstream& outFile){
             alignedAddress = _add(alignedAddress, "0000000000000001");
         }
 
-        cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+        cacheMem[in].putNewData(tag, requiredData, replacePolicy, in, 'r');
 
         outFilePrint('R', addr, in, "Miss", tag, "Clean", outFile);
     }
@@ -231,11 +263,9 @@ void cache::readManager(string addr, ofstream& outFile){
                     alignedAddress = _add(alignedAddress, "0000000000000001");
                 }
 
-                cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+                cacheMem[in].putNewData(tag, requiredData, replacePolicy, in, 'r');
 
-                outFile << "R: " << "Address: " << addr << ", " << "Set: " << in << ", ";
-                outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
-                outFile << '\n';
+                outFilePrint('R', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
             }
         }
 
@@ -250,7 +280,7 @@ void cache::readManager(string addr, ofstream& outFile){
                 alignedAddress = _add(alignedAddress, "0000000000000001");
             }
 
-            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in);
+            cacheMem[in].putNewData(tag, requiredData, replacePolicy, in, 'r');
 
             outFilePrint('R', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
         }
@@ -260,8 +290,8 @@ void cache::readManager(string addr, ofstream& outFile){
 void cache::writeManager(string addr, string givenData, ofstream& outFile) {
     string bin = hexadecimalToBinary(addr);
 
-    string in = bin.substr(64 - (byteOffsetBits + indexBits), indexBits);
     string tag = bin.substr(0, tagBits);
+    string in = bin.substr(tagBits, indexBits);
 
     // If the cache is not fully associative and the index is present
     if(in != "" && cacheMem.find(in) != cacheMem.end()){
@@ -281,7 +311,7 @@ void cache::writeManager(string addr, string givenData, ofstream& outFile) {
             misses += 1;
 
             if(writePolicy == "WB"){
-                cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+                cacheMem[in].putNewData(tag, givenData, replacePolicy, in, 'w');
             }
 
             outFilePrint('W', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
@@ -295,7 +325,7 @@ void cache::writeManager(string addr, string givenData, ofstream& outFile) {
         cacheMem[in] = cacheSet(associativity, blockSize);
 
         if(writePolicy == "WB")
-            cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+            cacheMem[in].putNewData(tag, givenData, replacePolicy, in, 'w');
 
         outFilePrint('W', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
     }
@@ -315,11 +345,9 @@ void cache::writeManager(string addr, string givenData, ofstream& outFile) {
                 misses += 1;
 
                 if(writePolicy == "WB")
-                    cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+                    cacheMem[in].putNewData(tag, givenData, replacePolicy, in, 'w');
 
-                outFile << "W: " << "Address: " << addr << ", " << "Set: " << in << ", ";
-                outFile << "Miss, " << "Tag: " << tag << ", " << "Clean";
-                outFile << '\n';
+                outFilePrint('W', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
             }
         }
         else{
@@ -328,7 +356,7 @@ void cache::writeManager(string addr, string givenData, ofstream& outFile) {
             cacheMem["fullAssociative"] = cacheSet(associativity, blockSize);
 
             if(writePolicy == "WB")
-                cacheMem[in].putNewData(tag, givenData, replacePolicy, in);
+                cacheMem[in].putNewData(tag, givenData, replacePolicy, in, 'w');
 
             outFilePrint('W', addr, in, "Miss", tag, ((cacheMem[in].isClean(tag) == 0) ? "Clean" : "Dirty"), outFile);
         }
@@ -338,8 +366,8 @@ void cache::writeManager(string addr, string givenData, ofstream& outFile) {
 string cache::givenDataManager(string addr, string newData, int size) {
     string alignedAddress = hexadecimalToBinary(addr);
 
-    string in = alignedAddress.substr(64 - (byteOffsetBits + indexBits), indexBits);
     string tag = alignedAddress.substr(0, tagBits);
+    string in = alignedAddress.substr(tagBits, indexBits);
     string byteOffset = alignedAddress.substr(64 - byteOffsetBits, byteOffsetBits);
 
     alignedAddress = tag + in;
@@ -378,6 +406,17 @@ void cache::dumpData(ofstream& outFile){
 
 void cache::clearCache(){
     cacheMem.clear();
+    hits = 0;
+    misses = 0;
+}
+
+void cache::cacheInvalidate(){
+    auto it = cacheMem.begin();
+
+    while(it != cacheMem.end()){
+        it->second.invalidate(it->first);
+        it++;
+    }
 }
 
 void cacheSet::validDataOutput(ofstream& outFile, string in){
@@ -392,7 +431,7 @@ void cacheSet::validDataOutput(ofstream& outFile, string in){
 void cache::printCacheStats(){
     cout << "D-cache statistics: " << "Accesses=" << (hits + misses) << ", ";
     cout << "Hit=" << hits << ", " << "Miss=" << misses << ", ";
-    cout << "Hit Rate=" << float(hits) / (hits + misses) << '\n';
+    cout << "Hit Rate=" << setprecision(3) << float(hits) / (hits + misses) << '\n';
 }
 
 string inHex(string s){
