@@ -408,7 +408,7 @@ string inHex(string s){
 }
 
 void outFilePrint(char rw, string addr, string in, string hm, string tag, string dc, ofstream& outFile){
-    outFile << rw << ": " << "Address: " << pretty(addr) << ", " << "Set: " << pretty(in) << ", ";
+    outFile << rw << ": " << "Address: " << pretty(addr) << ", " << "Set: " << pretty(inHex(in)) << ", ";
     outFile << hm << ", " << "Tag: " << pretty(inHex(tag)) << ", " << dc << '\n';
 }
 

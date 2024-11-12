@@ -11,6 +11,7 @@ int main(){
     ofstream dumpFile;
     string cacheConfigInfo[5];
     string filename = "";
+    string fields[4] = {"", "", "", ""};
 
     int lineNumber;
     while (true){
@@ -19,7 +20,6 @@ int main(){
         getline(cin, input);
         input = lineParser(input);
 
-        string fields[4] = {"", "", "", ""};
         int fieldCount = 0;
         int index = 0;
         while (true){
