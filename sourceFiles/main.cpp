@@ -47,6 +47,9 @@ int main(){
             labelParser(inputFile);
             initialiseDataSegment(inputFile);
             setBufferFromTextSeg(inputFile, lineNumber);
+
+            if(cacheState == "enabled")
+                myCache.clearCache();
         }
         else if(fields[0] == "step"){
             if(step(inputFile, lineNumber) == ""){
@@ -102,7 +105,7 @@ int main(){
 
             string temp = filename.substr(0, i + 1);
             temp = temp + "output";
-            
+
             outputFile.open(temp, ios::out);
         }
 
@@ -136,7 +139,11 @@ int main(){
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "stats"){
-            myCache.printCacheStats();
+            if(cacheState == "enabled")
+                myCache.printCacheStats();
+            
+            else
+                cout << "Cache Simulator is not enabled." << endl;
         }
         
         cout << endl;

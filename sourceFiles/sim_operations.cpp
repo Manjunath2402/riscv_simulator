@@ -5,6 +5,7 @@
 
 extern map<int, char> decToHex;
 extern ofstream outputFile;
+extern string cacheState;
 cache myCache; 
 
 map<string, int> regNameToRegNum = {
@@ -537,6 +538,7 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
 
     string effectiveAddress = RFunctionMap["add"](rs1, offset);
+    string tempaddr = effectiveAddress;
     string result = "";
     int numberOfBytes = 0;
 
@@ -577,7 +579,8 @@ void IInstructionExecutor2(string op, string rd, string rs1, string offset){
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
 
     // cache data manager requires the effective address.
-    myCache.readManager(effectiveAddress, outputFile);
+    if(cacheState == "enabled")
+        myCache.readManager(tempaddr, outputFile);
 }
 
 
@@ -591,6 +594,7 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     rs1 = regNumToRegValue[regNameToRegNum[rs1]];
     rs2 = regNumToRegValue[regNameToRegNum[rs2]];
     string effectiveAddress = RFunctionMap["add"](rs1, offset);
+    string tempaddr = effectiveAddress;
     // We are following little endian format, lsb at lower address.
     int numberOfBytes = 0;
     if(op == "sd") numberOfBytes = 8;
@@ -600,20 +604,28 @@ void SInstructionExecutor(string op, string rs1, string rs2, string offset){
     rs2 = rs2.substr((8 - numberOfBytes) * 2);
     
     // If the write policy is write through we need to update in mem and cache.
-    if(myCache.writePolicy == "WT"){
-        string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
+    if(cacheState == "enabled"){
+        if(myCache.writePolicy == "WT"){
+            string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
 
+            for (int i = numberOfBytes - 1; i >= 0; i--){
+                memory[effectiveAddress] = rs2.substr(2 * i, 2);
+                effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
+            }
+
+            myCache.writeManager(tempaddr, blockData, outputFile);
+        }
+        else{
+            string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
+
+            myCache.writeManager(tempaddr, blockData, outputFile);
+        }
+    }
+    else{
         for (int i = numberOfBytes - 1; i >= 0; i--){
             memory[effectiveAddress] = rs2.substr(2 * i, 2);
             effectiveAddress = RFunctionMap["add"](effectiveAddress, "0000000000000001");
         }
-
-        myCache.writeManager(effectiveAddress, blockData, outputFile);
-    }
-    else{
-        string blockData = myCache.givenDataManager(effectiveAddress, rs2, numberOfBytes);
-
-        myCache.writeManager(effectiveAddress, blockData, outputFile);
     }
 
     regNumToRegValue[32] = RFunctionMap["add"](regNumToRegValue[32], "0000000000000004");
@@ -779,6 +791,7 @@ string step(ifstream& in, int& lineNumber){
 void run(ifstream& in, int& lineNumber){
     string temp = "";
 
+    int flag = 0;
     while (true){
         if(breakPoints.find(lineNumber) != breakPoints.cend()){
             cout << "Execution stopped at break point: " << lineNumber << endl;
@@ -786,11 +799,14 @@ void run(ifstream& in, int& lineNumber){
         }
         temp = step(in, lineNumber);
         if(temp == ""){
-            cout << "Execution reached end of the file" << endl;
+            // cout << "Execution reached end of the file" << endl;
+            flag = 1;
             break;
         }
     }
     
+    if(cacheState == "enabled" && flag == 1)
+        myCache.printCacheStats();
 }
 
 /**

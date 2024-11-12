@@ -110,5 +110,10 @@ public:
     void dumpData(ofstream&);
 
     void printCacheStats();
+
+    void clearCache();
 };
 
+string inHex(string s);
+string pretty(string );
+void outFilePrint(char , string , string , string , string , string , ofstream& );
