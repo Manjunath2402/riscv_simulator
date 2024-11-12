@@ -380,12 +380,12 @@ string cache::givenDataManager(string addr, string newData, int size) {
     string requiredData = "";
     int keep = 0;
     for(int i = 0; i < blockSize; i++){
-        if(_isGreaterOrEqualUn(addr, alignedAddress) && keep != size){
+        if(_isGreaterOrEqualUn(addr, alignedAddress) && keep < size){
             requiredData += newData.substr(2 * keep, 2);
             keep++;
         }
         else{
-            requiredData = (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
+            requiredData += (memory[alignedAddress] == "") ? "00" : memory[alignedAddress];
         }
         alignedAddress = _add(alignedAddress, "0000000000000001");
     }
