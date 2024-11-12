@@ -2,6 +2,7 @@
 
 extern map<string, string> memory;
 string cacheState = "disabled";
+static int timeCounter = 0;
 
 // given a tag return if it is present in the cache or not.
 // If present update the recent access data.
@@ -31,10 +32,10 @@ void cacheSet::updateAccess(int lineNumber){
 }
 
 void cacheSet::updateIndex(int lineNumber){
-    static int i = 0;
-    if(i < lines){
-        i++;
-        timeIndex[lineNumber] = i;
+    // static int i = 0;
+    if(timeCounter < lines){
+        timeCounter++;
+        timeIndex[lineNumber] = timeCounter;
         return ;
     }
     
@@ -106,7 +107,7 @@ void cacheSet::putNewData(string givenTag, string givenData, string policy, stri
         data[replaceLine] = givenData;
         dirtyBit[replaceLine] = ((rw == 'w') ? 1 : 0);
         updateAccess(replaceLine);
-        updateAccess(replaceLine);
+        updateIndex(replaceLine);
         return; 
     }
 }
@@ -417,6 +418,7 @@ void cache::cacheInvalidate(){
         it->second.invalidate(it->first);
         it++;
     }
+    timeCounter = 0;
 }
 
 void cacheSet::validDataOutput(ofstream& outFile, string in){
