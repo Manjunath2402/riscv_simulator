@@ -49,8 +49,20 @@ int main(){
             initialiseDataSegment(inputFile);
             setBufferFromTextSeg(inputFile, lineNumber);
 
-            if(cacheState == "enabled")
+            if(cacheState == "enabled"){
                 myCache.clearCache();
+
+                int i = filename.size();
+            
+                for(; i >= 0; i--){
+                    if(filename[i] == '.') break;
+                }
+
+                string temp = filename.substr(0, i + 1);
+                temp = temp + "output";
+
+                outputFile.open(temp, ios::out);
+            }
         }
         else if(fields[0] == "step"){
             if(step(inputFile, lineNumber) == ""){
@@ -99,17 +111,6 @@ int main(){
             cacheState = "enabled";
 
             configFile.close();
-
-            int i = filename.size();
-            
-            for(; i >= 0; i--){
-                if(filename[i] == '.') break;
-            }
-
-            string temp = filename.substr(0, i + 1);
-            temp = temp + "output";
-
-            outputFile.open(temp, ios::out);
         }
 
         else if(fields[0] == "cache_sim" && fields[1] == "disable"){
